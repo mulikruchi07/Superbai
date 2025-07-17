@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:superbai/salary_screen.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/salary_screen.dart'; // Import the new SalaryScreen
-import 'package:google_fonts/google_fonts.dart'; // Import GoogleFonts
+import 'package:google_fonts/google_fonts.dart';
 
 class TimeSlotScreen extends StatefulWidget {
   const TimeSlotScreen({super.key});
@@ -11,61 +11,152 @@ class TimeSlotScreen extends StatefulWidget {
 }
 
 class _TimeSlotScreenState extends State<TimeSlotScreen> {
-  // State variables for selected items
-  TimeOfDay? _selectedFromTime;
-  TimeOfDay? _selectedToTime;
   int _numberOfShifts = 1;
-
-  // Data received from the previous screen (ProvidedServicesScreen)
+  final List<String?> _selectedShiftSlots = [null];
   Map<String, dynamic>? _routeArguments;
+  bool _isInitialized = false;
+
+  final List<String> _availableTimeSlots = [
+    '07:00 - 08:00',
+    '08:00 - 09:00',
+    '09:00 - 10:00',
+    '10:00 - 11:00',
+    '11:00 - 12:00',
+    '12:00 - 13:00',
+    '13:00 - 14:00',
+    '14:00 - 15:00',
+    '15:00 - 16:00',
+    '16:00 - 17:00',
+    '17:00 - 18:00',
+    '18:00 - 19:00',
+  ];
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Retrieve arguments when the route changes or dependencies change
-    _routeArguments =
-        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (!_isInitialized) {
+      _routeArguments =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+      if (_routeArguments != null) {
+        setState(() {
+          _numberOfShifts = _routeArguments?['numberOfShifts'] ?? 1;
+          final slots = _routeArguments?['selectedShiftTimes'] as List?;
+          if (slots != null) {
+            _selectedShiftSlots.clear();
+            _selectedShiftSlots.addAll(List<String?>.from(slots));
+          }
+          _updateShiftTimesList();
+        });
+      }
+      _isInitialized = true;
+    }
   }
 
-  // Helper to show the time picker
-  Future<void> _selectTime(BuildContext context, bool isFromTime) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
+  void _updateShiftTimesList() {
+    if (_selectedShiftSlots.length < _numberOfShifts) {
       setState(() {
-        if (isFromTime) {
-          _selectedFromTime = picked;
-        } else {
-          _selectedToTime = picked;
+        while (_selectedShiftSlots.length < _numberOfShifts) {
+          _selectedShiftSlots.add(null);
+        }
+      });
+    } else if (_selectedShiftSlots.length > _numberOfShifts) {
+      setState(() {
+        while (_selectedShiftSlots.length > _numberOfShifts) {
+          _selectedShiftSlots.removeLast();
         }
       });
     }
   }
 
-  // Helper to format TimeOfDay for display
-  String _formatTime(TimeOfDay? time) {
-    if (time == null) {
-      return 'Select Time';
-    }
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
+  InputDecoration _buildInputDecoration(String hintText) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: GoogleFonts.poppins(
+        color: AppColors.neutralMediumGray,
+        fontWeight: FontWeight.normal,
+      ),
+      filled: true,
+      fillColor: AppColors.neutralWhite,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        borderSide: BorderSide(color: AppColors.neutralMediumGray, width: 1.5),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        borderSide: BorderSide(color: AppColors.neutralMediumGray, width: 1.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        borderSide: BorderSide(color: AppColors.primaryPurple, width: 2.0),
+      ),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 15),
+    );
+  }
+
+  Widget _buildTimeSlotDropdown(int index) {
+    final List<String> availableForThisDropdown = _availableTimeSlots.where((
+      slot,
+    ) {
+      bool isSelectedByOther = false;
+      for (int i = 0; i < _selectedShiftSlots.length; i++) {
+        if (i != index && _selectedShiftSlots[i] == slot) {
+          isSelectedByOther = true;
+          break;
+        }
+      }
+      return !isSelectedByOther;
+    }).toList();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Shift ${index + 1}',
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutralDarkGray,
+            ),
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            decoration: _buildInputDecoration('Select a Time Slot'),
+            value: _selectedShiftSlots[index],
+            hint: Text(
+              'Select a Time Slot',
+              style: GoogleFonts.poppins(color: AppColors.neutralMediumGray),
+            ),
+            isExpanded: true,
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedShiftSlots[index] = newValue;
+              });
+            },
+            items: availableForThisDropdown.map<DropdownMenuItem<String>>((
+              String value,
+            ) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(
+                  value,
+                  style: GoogleFonts.poppins(
+                    color: AppColors.neutralBlack,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic>? maidData =
-        _routeArguments?['maidData'] as Map<String, dynamic>?;
-    final String? serviceTitle = _routeArguments?['serviceTitle'] as String?;
-
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
       appBar: AppBar(
@@ -73,44 +164,33 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
-          onPressed: () {
-            Navigator.pop(context); // Go back to ProvidedServicesScreen
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Select your time-slot:', // Updated title text as per image
+          'Select your time-slot:',
           style: GoogleFonts.poppins(
             fontSize: 18,
             color: AppColors.neutralWhite,
-            fontWeight: FontWeight.normal, // No bold
+            fontWeight: FontWeight.normal,
           ),
         ),
-        centerTitle: false, // Align title to the left
+        centerTitle: false,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 20.0),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 5,
-              ), // Adjusted vertical padding
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: AppColors
-                    .neutralWhite, // Background color for 2/3 badge changed to white
-                borderRadius: BorderRadius.circular(8), // Reduced curve
-                border: Border.all(
-                  color: AppColors.neutralWhite,
-                  width: 0,
-                ), // No border
+                color: AppColors.neutralWhite,
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
                 child: Text(
-                  '2/3', // Page indicator
+                  '2/3',
                   style: GoogleFonts.poppins(
-                    fontSize: 14, // Small font size
-                    color:
-                        AppColors.primaryPurple, // Text color changed to purple
-                    fontWeight: FontWeight.normal, // Not bold
+                    fontSize: 14,
+                    color: AppColors.primaryPurple,
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
               ),
@@ -119,251 +199,143 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Removed Lorem Ipsum text
-            const SizedBox(height: 20), // Gap after paragraph (if it existed)
-            // From and To Time Input Boxes
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _selectTime(context, true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 15,
-                        vertical: 15,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.neutralWhite,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.neutralMediumGray,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'From',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.neutralDarkGray,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _formatTime(_selectedFromTime),
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: AppColors.neutralBlack,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _selectTime(context, false),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 15,
-                        vertical: 15,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.neutralWhite,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.neutralMediumGray,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'To',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.neutralDarkGray,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _formatTime(_selectedToTime),
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: AppColors.neutralBlack,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-
-            // Select no. of shifts option
-            Text(
-              'Select no. of shifts',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.neutralWhite,
-                borderRadius: BorderRadius.circular(50.0), // Fully curved edges
-                border: Border.all(
-                  color: AppColors.neutralMediumGray,
-                  width: 1.5,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(top: 20.0),
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        if (_numberOfShifts > 1) _numberOfShifts--;
-                      });
-                    },
-                    child: Icon(
-                      Icons.remove,
-                      size: 20,
-                      color: AppColors.primaryPurple,
-                    ),
+                  ...List.generate(
+                    _numberOfShifts,
+                    (index) => _buildTimeSlotDropdown(index),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text(
-                      '$_numberOfShifts',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.neutralBlack,
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select no. of shifts',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          color: AppColors.neutralBlack,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _numberOfShifts++;
-                      });
-                    },
-                    child: Icon(
-                      Icons.add,
-                      size: 20,
-                      color: AppColors.primaryPurple,
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neutralWhite,
+                          borderRadius: BorderRadius.circular(50.0),
+                          border: Border.all(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (_numberOfShifts > 1) {
+                                    _numberOfShifts--;
+                                    _updateShiftTimesList();
+                                  }
+                                });
+                              },
+                              child: Icon(
+                                Icons.remove,
+                                size: 20,
+                                color: AppColors.primaryPurple,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              child: Text(
+                                '$_numberOfShifts',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.neutralBlack,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _numberOfShifts++;
+                                  _updateShiftTimesList();
+                                });
+                              },
+                              child: Icon(
+                                Icons.add,
+                                size: 20,
+                                color: AppColors.primaryPurple,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 10.0, bottom: 40.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    bool allSlotsSelected = !_selectedShiftSlots.any(
+                      (slot) => slot == null,
+                    );
 
-            const Spacer(), // Pushes the button to the bottom
-            // Confirm Time-slot Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  if (_selectedFromTime != null && _selectedToTime != null) {
-                    // Navigate to the new SalaryScreen
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => SalaryScreen(
-                          routeArguments: {
-                            'selectedFromTime': _formatTime(_selectedFromTime),
-                            'selectedToTime': _formatTime(_selectedToTime),
-                            'numberOfShifts': _numberOfShifts,
-                            'maidData':
-                                maidData, // Pass maidData to next screen
-                            'serviceTitle':
-                                serviceTitle, // Pass serviceTitle to next screen
-                            // Pass other arguments received from previous screen if needed
-                            'currentSelectedAreaOption':
-                                _routeArguments?['currentSelectedAreaOption'],
-                            'currentSelectedAdditionalServices':
-                                _routeArguments?['currentSelectedAdditionalServices'],
-                            'currentSelectedMealType':
-                                _routeArguments?['currentSelectedMealType'],
-                            'currentSelectedMeals':
-                                _routeArguments?['currentSelectedMeals'],
-                            'currentSelectedCookingStyles':
-                                _routeArguments?['currentSelectedCookingStyles'],
-                            'currentSelectedPeopleCount':
-                                _routeArguments?['currentSelectedPeopleCount'],
-                            'currentHasWashingMachine':
-                                _routeArguments?['currentHasWashingMachine'],
-                            'currentSelectedLaundryAdditional':
-                                _routeArguments?['currentSelectedLaundryAdditional'],
-                            'currentSelectedTypeOfCare':
-                                _routeArguments?['currentSelectedTypeOfCare'],
-                            'currentSelectedHoursOfCare':
-                                _routeArguments?['currentSelectedHoursOfCare'],
-                            'currentSelectedSpecialNeeds':
-                                _routeArguments?['currentSelectedSpecialNeeds'],
-                            'currentSelectedChildAges':
-                                _routeArguments?['currentSelectedChildAges'],
-                            'currentNumChildren':
-                                _routeArguments?['currentNumChildren'],
-                            'currentSelectedActivities':
-                                _routeArguments?['currentSelectedActivities'],
-                            'currentSelectedAllRounderTypes':
-                                _routeArguments?['currentSelectedAllRounderTypes'],
-                            'currentBudget': _routeArguments?['currentBudget'],
-                            'currentNumShifts':
-                                _routeArguments?['currentNumShifts'],
-                            'currentSelectedShiftTimes':
-                                _routeArguments?['currentSelectedShiftTimes'],
-                            'currentServiceType':
-                                _routeArguments?['currentServiceType'],
-                            'currentSelectedDays':
-                                _routeArguments?['currentSelectedDays'],
-                          },
+                    if (allSlotsSelected) {
+                      final arguments = {
+                        ...(_routeArguments ?? {}),
+                        'selectedShiftTimes': _selectedShiftSlots,
+                        'numberOfShifts': _numberOfShifts,
+                      };
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SalaryScreen(routeArguments: arguments),
                         ),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Please select both From and To times.'),
-                      ),
-                    );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryPurple,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      30.0,
-                    ), // Fully curved edges
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please select a time slot for all shifts.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryPurple,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
                   ),
-                ),
-                child: Text(
-                  'CONFIRM TIME-SLOT',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.buttonText.fontSize,
-                    color: AppColors.neutralWhite,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
+                  child: Text(
+                    'CONFIRM TIME-SLOT',
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTextStyles.buttonText.fontSize,
+                      color: AppColors.neutralWhite,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
               ),

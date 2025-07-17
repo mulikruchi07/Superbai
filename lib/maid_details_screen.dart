@@ -205,38 +205,42 @@ class MaidDetailsScreen extends StatelessWidget {
             ),
             const Spacer(), // Pushes the button to the bottom
             // Yes, Confirm Maid Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Navigate to the new ProvidedServicesScreen
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ProvidedServicesScreen(
-                        maidData: maidData, // Pass maidData to the next screen
+            Padding(
+              padding: const EdgeInsets.only(bottom: 40.0),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Navigate to the new ProvidedServicesScreen
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ProvidedServicesScreen(
+                          maidData:
+                              maidData, // Pass maidData to the next screen
+                        ),
                       ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        AppColors.primaryPurple, // Button background color
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                    ), // Reduced vertical padding slightly
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        30.0,
+                      ), // Fully curved edges
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      AppColors.primaryPurple, // Button background color
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 16,
-                  ), // Reduced vertical padding slightly
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      30.0,
-                    ), // Fully curved edges
                   ),
-                ),
-                child: Text(
-                  'YES, CONFIRM MAID',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.buttonText.fontSize,
-                    color: AppColors.neutralWhite,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
+                  child: Text(
+                    'YES, CONFIRM MAID',
+                    style: GoogleFonts.poppins(
+                      fontSize: AppTextStyles.buttonText.fontSize,
+                      color: AppColors.neutralWhite,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
               ),

@@ -58,9 +58,6 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
 
   // These variables are kept to satisfy the arguments needed for TimeSlotScreen, but their values are not updated via UI.
   double _currentBudget = 4000;
-  int _currentNumShifts = 1;
-  Set<String> _currentSelectedShiftTimes = {};
-  String? _currentServiceType;
   Set<String> _currentSelectedDays = {};
 
   // Store the selected service title to pass to the confirmation screen
@@ -422,13 +419,8 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                 .toList(), // Convert Set to List
             'currentSelectedAllRounderTypes': _currentSelectedAllRounderTypes
                 .toList(), // Convert Set to List
-            'currentBudget': _currentBudget, // Dummy values
-            'currentNumShifts': _currentNumShifts, // Dummy values
-            'currentSelectedShiftTimes': _currentSelectedShiftTimes
-                .toList(), // Dummy values, convert Set to List
-            'currentServiceType': _currentServiceType, // Dummy values
-            'currentSelectedDays': _currentSelectedDays
-                .toList(), // Dummy values, convert Set to List
+            'currentBudget': _currentBudget,
+            'currentSelectedDays': _currentSelectedDays.toList(),
           },
         ),
       ),
@@ -455,13 +447,8 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
       _currentNumChildren = 1;
       _currentSelectedActivities.clear();
       _currentSelectedAllRounderTypes.clear();
-
-      // Reset states for the second modal (these are now dummy values)
-      _currentBudget = 4000;
-      _currentNumShifts = 1;
-      _currentSelectedShiftTimes.clear();
-      _currentServiceType = null;
       _currentSelectedDays.clear();
+      _currentBudget = 4000;
     }
 
     showModalBottomSheet(

@@ -1,23 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:superbai/salary_screen.dart';
 import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart'; // Import DashboardScreen
 import 'package:google_fonts/google_fonts.dart'; // Import GoogleFonts
 
 class MaidLinkingScreen extends StatelessWidget {
-  // Data passed from TimeSlotScreen (dummy for now, will connect to maid data later)
-  final List<String>
-  selectedDays; // Keeping for compatibility, though time is now more detailed
-  final String
-  selectedTimeSlot; // Keeping for compatibility, though time is now more detailed
-  final Map<String, dynamic>?
-  maidData; // Optional, if you want to display the specific maid
+  final Map<String, dynamic>? maidData;
 
-  const MaidLinkingScreen({
-    super.key,
-    required this.selectedDays,
-    required this.selectedTimeSlot,
-    this.maidData, // Optional maid data
-  });
+  const MaidLinkingScreen({super.key, this.maidData});
 
   @override
   Widget build(BuildContext context) {
@@ -25,20 +15,30 @@ class MaidLinkingScreen extends StatelessWidget {
     final displayMaidData = maidData ?? {}; // Ensure it's not null
 
     // Extract relevant data from displayMaidData
-    final String maidName = displayMaidData['name'] ?? 'N/A';
-    final String service = displayMaidData['service'] ?? 'N/A';
+    final String maidName =
+        (displayMaidData['maidData'] as Map<String, dynamic>?)?['name'] ??
+        'N/A';
+    final String serviceTitle = displayMaidData['serviceTitle'] ?? 'N/A';
     final String salary = displayMaidData['salary'] ?? 'N/A';
     final String dateOfPayment = displayMaidData['dateOfPayment'] ?? 'N/A';
-    final String selectedFromTime =
-        displayMaidData['selectedFromTime'] ?? 'N/A';
-    final String selectedToTime = displayMaidData['selectedToTime'] ?? 'N/A';
     final int numberOfShifts = displayMaidData['numberOfShifts'] ?? 1;
-    final List<String>? selectedAllRounderTypes =
-        displayMaidData['currentSelectedAllRounderTypes'] as List<String>?;
+    final List<dynamic>? shiftSlotsDynamic =
+        displayMaidData['selectedShiftTimes'];
+    final List<String?> shiftSlots =
+        shiftSlotsDynamic?.map((s) => s.toString()).toList() ?? [];
+    final String timeSlotDisplay = shiftSlots
+        .where((s) => s != null)
+        .join(' | ');
+
+    final List<dynamic>? selectedAllRounderTypesDynamic =
+        displayMaidData['currentSelectedAllRounderTypes'];
+    final List<String>? selectedAllRounderTypes = selectedAllRounderTypesDynamic
+        ?.map((e) => e.toString())
+        .toList();
 
     // Determine the service display string
-    String serviceDisplay = service;
-    if (service == 'All-rounder' &&
+    String serviceDisplay = serviceTitle;
+    if (serviceTitle == 'All-rounder' &&
         selectedAllRounderTypes != null &&
         selectedAllRounderTypes.isNotEmpty) {
       serviceDisplay = 'All-rounder (${selectedAllRounderTypes.join(', ')})';
@@ -46,21 +46,40 @@ class MaidLinkingScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
+      appBar: AppBar(
+        backgroundColor: AppColors.primaryPurple,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        title: Text(
+          'Confirmation',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            color: AppColors.neutralWhite,
+            fontWeight: FontWeight.normal,
+          ),
+        ),
+        centerTitle: false,
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.center, // Center primary elements horizontally
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top Icon (assuming image will be provided in assets)
+            const SizedBox(height: 30), // Move image down
+            // Top Icon
             Image.asset(
-              'assets/linking_icon.png', // Placeholder for the actual image asset
+              'assets/linking_icon.png',
               height: 100,
               width: 100,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 return Icon(
-                  Icons.person_pin_circle, // Fallback icon if image not found
+                  Icons.person_pin_circle,
                   size: 100,
                   color: AppColors.emotionYellow,
                 );
@@ -68,112 +87,101 @@ class MaidLinkingScreen extends StatelessWidget {
             ),
             const SizedBox(height: 30),
 
-            // "Hurray!" Text - Aligned to left (with horizontal padding to match card)
+            // "Hurray!" Text
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Hurray! Your Maid Linking under approval',
-                textAlign: TextAlign.left, // Ensured left alignment
+                textAlign: TextAlign.left,
                 style: GoogleFonts.poppins(
-                  // Use GoogleFonts
-                  fontSize: 18, // Small font size
+                  fontSize: 18,
                   color: AppColors.primaryPurple,
-                  fontWeight: FontWeight.normal, // Not bold
+                  fontWeight: FontWeight.normal,
                 ),
               ),
             ),
-            const SizedBox(height: 20), // Reduced spacing as per image
+            const SizedBox(height: 20),
             // Maid Details Card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20.0),
               decoration: BoxDecoration(
-                color: AppColors.primaryPurple.withOpacity(
-                  0.1,
-                ), // Card filled color to purple transparent
+                color: AppColors.primaryPurple.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.primaryPurple,
-                  width: 2,
-                ), // Outline color
+                border: Border.all(color: AppColors.primaryPurple, width: 2),
               ),
               child: Column(
-                // Centered horizontally within the card
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Maid Profile Picture above the name
+                  // Maid Profile Picture
                   Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: AppColors.primaryPurple,
                         width: 1.0,
-                      ), // Thin purple outline
+                      ),
                     ),
                     child: CircleAvatar(
-                      radius: 40, // Increased size slightly to match
-                      backgroundColor: AppColors
-                          .secondaryPastelPurple, // Background for the avatar
-                      backgroundImage: const NetworkImage(
-                        'https://placehold.co/100x100/E0BBE4/5D4EFF?text=R',
+                      radius: 40,
+                      backgroundColor: AppColors.secondaryPastelPurple,
+                      child: Text(
+                        maidName.isNotEmpty ? maidName[0].toUpperCase() : 'S',
+                        style: GoogleFonts.poppins(
+                          fontSize: 40,
+                          color: AppColors.primaryPurple,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 15), // Spacing between image and name
+                  const SizedBox(height: 15),
                   Text(
                     maidName,
                     style: GoogleFonts.poppins(
-                      // Use GoogleFonts
-                      fontSize: 18, // Small font size
-                      color: AppColors.primaryPurple, // Maid name purple
-                      fontWeight: FontWeight.bold, // Maid name bold
+                      fontSize: 18,
+                      color: AppColors.primaryPurple,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(
-                    height: 15,
-                  ), // Spacing between name and details block
-                  // Details block - left-aligned within this column
+                  const SizedBox(height: 15),
+                  // Details block
                   Column(
-                    crossAxisAlignment: CrossAxisAlignment
-                        .start, // Left-align text within this column
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Time-slot: $selectedFromTime - $selectedToTime ($numberOfShifts shifts)',
+                        'Time-slot: $timeSlotDisplay ($numberOfShifts shifts)',
                         style: GoogleFonts.poppins(
-                          // Use GoogleFonts
-                          fontSize: 14, // Small font size
+                          fontSize: 14,
                           color: AppColors.primaryPurple,
-                          fontWeight: FontWeight.normal, // Not bold
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Service : $serviceDisplay', // Display service or sub-services
+                        'Service : $serviceDisplay',
                         style: GoogleFonts.poppins(
-                          // Use GoogleFonts
-                          fontSize: 14, // Small font size
+                          fontSize: 14,
                           color: AppColors.primaryPurple,
-                          fontWeight: FontWeight.normal, // Not bold
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Salary : $salary', // Fetch salary
+                        'Salary : $salary',
                         style: GoogleFonts.poppins(
-                          // Use GoogleFonts
-                          fontSize: 14, // Small font size
+                          fontSize: 14,
                           color: AppColors.primaryPurple,
-                          fontWeight: FontWeight.normal, // Not bold
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Payment Date : $dateOfPayment', // Fetch salary date
+                        'Payment Date : $dateOfPayment',
                         style: GoogleFonts.poppins(
-                          // Use GoogleFonts
-                          fontSize: 14, // Small font size
+                          fontSize: 14,
                           color: AppColors.primaryPurple,
-                          fontWeight: FontWeight.normal, // Not bold
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                     ],
@@ -181,23 +189,21 @@ class MaidLinkingScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 30), // Spacing below the card
+            const SizedBox(height: 30),
             // "Your Maid will be linked..." Text
             Text(
               'Your Maid will be linked\nonce $maidName confirms\nall the details.',
-              textAlign: TextAlign.center, // Centered as per image
+              textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
-                // Use GoogleFonts
-                fontSize: 16, // Increased font size
-                color: AppColors.primaryPink, // Pink color
-                fontWeight: FontWeight.bold, // Bold
+                fontSize: 16,
+                color: AppColors.primaryPink,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const Spacer(), // Pushes the button to the bottom
             // Go To Home Button
             Padding(
-              // Added Padding to match the bottom padding of other pages
-              padding: const EdgeInsets.only(bottom: 20.0),
+              padding: const EdgeInsets.only(bottom: 40.0),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -206,28 +212,23 @@ class MaidLinkingScreen extends StatelessWidget {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                         builder: (context) => const DashboardScreen(),
-                      ), // Navigate to DashboardScreen
-                      (Route<dynamic> route) =>
-                          false, // Clear all previous routes
+                      ),
+                      (Route<dynamic> route) => false,
                     );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPurple,
                     padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        30.0,
-                      ), // Fully curved edges
+                      borderRadius: BorderRadius.circular(30.0),
                     ),
                   ),
                   child: Text(
                     'GO TO HOME',
                     style: GoogleFonts.poppins(
-                      // Use GoogleFonts
                       fontSize: AppTextStyles.buttonText.fontSize,
                       color: AppColors.neutralWhite,
-                      fontWeight: FontWeight
-                          .w600, // Kept bold for button text as it's common
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 1.5,
                     ),
                   ),

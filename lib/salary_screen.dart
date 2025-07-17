@@ -14,9 +14,42 @@ class SalaryScreen extends StatefulWidget {
 }
 
 class _SalaryScreenState extends State<SalaryScreen> {
+  // A global key that uniquely identifies the Form widget and allows validation.
+  final _formKey = GlobalKey<FormState>();
+
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarkController = TextEditingController();
   DateTime? _selectedDateOfPayment; // State variable for the selected date
+  bool _dateHasError = false; // State to track date validation error
+  bool _isInitialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final arguments = widget.routeArguments;
+      if (arguments != null) {
+        _amountController.text = arguments['salary'] ?? '';
+        _remarkController.text = arguments['remark'] ?? '';
+        final dateString = arguments['dateOfPayment'];
+        if (dateString != null && dateString != 'Select Date') {
+          try {
+            final dateParts = dateString.split('/');
+            if (dateParts.length == 3) {
+              final day = int.parse(dateParts[0]);
+              final month = int.parse(dateParts[1]);
+              final year = int.parse(dateParts[2]);
+              _selectedDateOfPayment = DateTime(year, month, day);
+            }
+          } catch (e) {
+            // Could not parse date, leave it as null
+            _selectedDateOfPayment = null;
+          }
+        }
+      }
+      _isInitialized = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -53,6 +86,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
     if (picked != null && picked != _selectedDateOfPayment) {
       setState(() {
         _selectedDateOfPayment = picked;
+        _dateHasError = false; // Reset error when a date is picked
       });
     }
   }
@@ -65,23 +99,40 @@ class _SalaryScreenState extends State<SalaryScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  // Function to handle form submission
+  void _submitForm() {
+    // First, validate the TextFormField
+    final bool isFormValid = _formKey.currentState?.validate() ?? false;
+
+    // Then, validate the custom date picker
+    setState(() {
+      _dateHasError = _selectedDateOfPayment == null;
+    });
+
+    if (isFormValid && !_dateHasError) {
+      // Create a mutable copy of maidData and add salary/remark
+      Map<String, dynamic> updatedMaidData = {};
+
+      // Pass along all previous arguments
+      updatedMaidData.addAll(widget.routeArguments ?? {});
+
+      // Add the new details from this screen
+      updatedMaidData['salary'] = _amountController.text;
+      updatedMaidData['remark'] = _remarkController.text;
+      updatedMaidData['dateOfPayment'] = _formatDate(_selectedDateOfPayment);
+
+      // Navigate to MaidLinkingScreen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MaidLinkingScreen(maidData: updatedMaidData),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Map<String, dynamic>? maidData =
-        widget.routeArguments?['maidData'] as Map<String, dynamic>?;
-    final String? serviceTitle =
-        widget.routeArguments?['serviceTitle'] as String?;
-    final String? selectedFromTime =
-        widget.routeArguments?['selectedFromTime'] as String?;
-    final String? selectedToTime =
-        widget.routeArguments?['selectedToTime'] as String?;
-    final int? numberOfShifts =
-        widget.routeArguments?['numberOfShifts'] as int?;
-    // Retrieve the list of selected all-rounder sub-services
-    final List<String>? currentSelectedAllRounderTypes =
-        widget.routeArguments?['currentSelectedAllRounderTypes']
-            as List<String>?;
-
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
       appBar: AppBar(
@@ -90,22 +141,18 @@ class _SalaryScreenState extends State<SalaryScreen> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
           onPressed: () {
-            // Navigate back to TimeSlotScreen, replacing the current route
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const TimeSlotScreen(),
-                // Pass back the original arguments if TimeSlotScreen needs them
-                settings: RouteSettings(arguments: widget.routeArguments),
-              ),
-            );
+            Navigator.of(context).pop();
           },
         ),
-        title: Text(
-          'Mention the salary you pay:',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            color: AppColors.neutralWhite,
-            fontWeight: FontWeight.normal,
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Mention the salary you pay:',
+            style: GoogleFonts.poppins(
+              fontSize: 18, // Base font size
+              color: AppColors.neutralWhite,
+              fontWeight: FontWeight.normal,
+            ),
           ),
         ),
         centerTitle: false,
@@ -117,7 +164,6 @@ class _SalaryScreenState extends State<SalaryScreen> {
               decoration: BoxDecoration(
                 color: AppColors.neutralWhite,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.neutralWhite, width: 0),
               ),
               child: Center(
                 child: Text(
@@ -134,243 +180,246 @@ class _SalaryScreenState extends State<SalaryScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.primaryPurple.withOpacity(0.7),
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            Text(
-              'Enter amount',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Like: 2000Rs. /month',
-                hintStyle: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.neutralMediumGray,
-                  fontWeight: FontWeight.normal,
-                ),
-                filled: true,
-                fillColor: AppColors.neutralWhite,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.neutralMediumGray,
-                    width: 1.0,
-                  ), // Thin border
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.neutralMediumGray,
-                    width: 1.0,
-                  ), // Thin border
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.primaryPurple,
-                    width: 1.0,
-                  ), // Thin purple border
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 12,
-                ),
-              ),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Date of Payment Input
-            Text(
-              'Date of Payment',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _selectDate(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.neutralWhite,
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  border: Border.all(
-                    color: AppColors.neutralMediumGray,
-                    width: 1.0,
-                  ), // Thin border
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(top: 20.0),
                   children: [
                     Text(
-                      _formatDate(_selectedDateOfPayment),
+                      'Enter amount*',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
-                        color: _selectedDateOfPayment == null
-                            ? AppColors.neutralMediumGray
-                            : AppColors.neutralBlack,
+                        color: AppColors.neutralBlack,
                         fontWeight: FontWeight.normal,
                       ),
                     ),
-                    Icon(
-                      Icons.calendar_today,
-                      color: AppColors.neutralMediumGray,
-                      size: 20,
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _amountController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        hintText: 'Like: 2000Rs. /month',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.neutralMediumGray,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.neutralWhite,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.0,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.0,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryPurple,
+                            width: 1.0,
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                            width: 1.0,
+                          ),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.0),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                            width: 2.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 12,
+                        ),
+                      ),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralBlack,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter an amount';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Date of Payment Input
+                    Text(
+                      'Date of Payment*',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralBlack,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () => _selectDate(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.neutralWhite,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: _dateHasError
+                                    ? Colors.redAccent
+                                    : AppColors.neutralMediumGray,
+                                width: _dateHasError ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  _formatDate(_selectedDateOfPayment),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: _selectedDateOfPayment == null
+                                        ? AppColors.neutralMediumGray
+                                        : AppColors.neutralBlack,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.calendar_today,
+                                  color: AppColors.neutralMediumGray,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_dateHasError)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: 12.0,
+                              top: 8.0,
+                            ),
+                            child: Text(
+                              'Please select a date of payment',
+                              style: GoogleFonts.poppins(
+                                color: Colors.redAccent.shade700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    Text(
+                      'Remark',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralBlack,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _remarkController,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        hintText:
+                            'Write about any change you want in maid\'s behavior, work style ,etc',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.neutralMediumGray,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        filled: true,
+                        fillColor: AppColors.neutralWhite,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.0,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.0,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryPurple,
+                            width: 1.0,
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 12,
+                        ),
+                      ),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralBlack,
+                        fontWeight: FontWeight.normal,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            Text(
-              'Remark',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _remarkController,
-              maxLines: 5,
-              decoration: InputDecoration(
-                hintText:
-                    'Write about any change you want in maid\'s behavior, work style ,etc',
-                hintStyle: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.neutralMediumGray,
-                  fontWeight: FontWeight.normal,
-                ),
-                filled: true,
-                fillColor: AppColors.neutralWhite,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.neutralMediumGray,
-                    width: 1.0,
-                  ), // Thin border
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.neutralMediumGray,
-                    width: 1.0,
-                  ), // Thin border
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8), // Small curve
-                  borderSide: BorderSide(
-                    color: AppColors.primaryPurple,
-                    width: 1.0,
-                  ), // Thin purple border
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 12,
-                ),
-              ),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            const Spacer(), // Pushes the button to the bottom
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  // Create a mutable copy of maidData and add salary/remark
-                  Map<String, dynamic> updatedMaidData = Map.from(
-                    maidData ?? {}, // Use the maidData received
-                  );
-                  updatedMaidData['salary'] = _amountController.text;
-                  updatedMaidData['remark'] = _remarkController.text;
-                  updatedMaidData['dateOfPayment'] = _formatDate(
-                    _selectedDateOfPayment,
-                  ); // Add date of payment
-
-                  // Add time slot details
-                  updatedMaidData['selectedFromTime'] = selectedFromTime;
-                  updatedMaidData['selectedToTime'] = selectedToTime;
-                  updatedMaidData['numberOfShifts'] = numberOfShifts;
-
-                  // Add service title (which could be the main service or the last configured sub-service)
-                  updatedMaidData['service'] = serviceTitle ?? 'N/A';
-                  // Add the list of selected all-rounder sub-services
-                  // This is crucial for passing the sub-services to MaidLinkingScreen
-                  updatedMaidData['currentSelectedAllRounderTypes'] =
-                      currentSelectedAllRounderTypes;
-
-                  // Navigate to MaidLinkingScreen
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => MaidLinkingScreen(
-                        // selectedDays and selectedTimeSlot are now redundant if fetching from maidData
-                        selectedDays:
-                            widget.routeArguments?['selectedDays'] ??
-                            [], // Keeping for compatibility
-                        selectedTimeSlot:
-                            widget.routeArguments?['selectedTimeSlot'] ??
-                            '', // Keeping for compatibility
-                        maidData: updatedMaidData, // Pass the updated maidData
+              // Confirm & Connect Button
+              Padding(
+                padding: const EdgeInsets.only(top: 10.0, bottom: 40.0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _submitForm,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryPurple,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30.0),
                       ),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryPurple,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      30.0,
-                    ), // Fully curved edges
-                  ),
-                ),
-                child: Text(
-                  'CONFIRM & CONNECT',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.buttonText.fontSize,
-                    color: AppColors.neutralWhite,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
+                    child: Text(
+                      'CONFIRM & CONNECT',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.buttonText.fontSize,
+                        color: AppColors.neutralWhite,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
