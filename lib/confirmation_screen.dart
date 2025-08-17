@@ -26,8 +26,6 @@ class ConfirmationScreen extends StatefulWidget {
   final Set<String> currentSelectedShiftTimes;
   final String? currentServiceType;
   final Set<String> currentSelectedDays;
-  final String? customFromTime;
-  final String? customToTime;
   final Map<String, Map<String, dynamic>>?
   allRounderSubServiceData; // New parameter for All-rounder details
 
@@ -54,8 +52,6 @@ class ConfirmationScreen extends StatefulWidget {
     required this.currentSelectedShiftTimes,
     this.currentServiceType,
     required this.currentSelectedDays,
-    this.customFromTime,
-    this.customToTime,
     this.allRounderSubServiceData, // Initialize the new parameter
   });
 
@@ -211,12 +207,8 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                       widget.currentSelectedDays.join(', '),
                     ),
                     _buildConfirmationRow(
-                      'From Time',
-                      widget.customFromTime ?? 'N/A',
-                    ),
-                    _buildConfirmationRow(
-                      'To Time',
-                      widget.customToTime ?? 'N/A',
+                      'Time Slots',
+                      widget.currentSelectedShiftTimes.join(', '),
                     ),
                   ],
                   _buildConfirmationRow(
