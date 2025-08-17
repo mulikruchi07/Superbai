@@ -41,14 +41,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // States for the second modal (Budget/Shifts)
   double _currentBudget = 0; // Will be calculated dynamically
   int _currentNumShifts = 0; // Will be updated based on time slot selection
-  Set<String> _currentSelectedShiftTimes =
-      {}; // Changed to Set for multi-selection
   String? _currentServiceType; // Daily or Custom
 
-  // For Daily service type
-  Set<String> _selectedDailyTimeSlots =
-      {}; // Changed to Set for multiple selections
-  final List<String> _dailyTimeSlotsOptions = [
+  // For Daily and Custom service types
+  Set<String> _selectedTimeSlots = {};
+  final List<String> _timeSlotsOptions = [
     '9:00 AM - 12:00 PM',
     '1:00 PM - 4:00 PM',
     '5:00 PM - 8:00 PM',
@@ -56,8 +53,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // For Custom service type
   DateTime? _selectedCustomDate;
-  TimeOfDay? _selectedCustomFromTime;
-  TimeOfDay? _selectedCustomToTime;
 
   // Store the selected service title to pass to the confirmation screen
   String _selectedServiceTitle = '';
@@ -356,18 +351,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: AppColors.neutralBlack),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const FindMaidScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 10),
-        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -544,59 +527,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20.0),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10.0,
-                vertical: 20.0,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLightPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildCountMetric('1500+', 'Maids'),
-                        _buildCountMetric('5000+', 'Customers'),
-                        _buildCountMetric('450+', 'Areas'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  SizedBox(
-                    height: 200,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildReviewCard(
-                          'Jane Doe',
-                          'Username: is simply dummy text of the printing and typesetting industry. Lorem Ipsum has',
-                          4,
-                        ),
-                        const SizedBox(width: 20),
-                        _buildReviewCard(
-                          'Sophie T',
-                          'Username: is simply dummy text of the printing and typesetting industry. Lorem Ipsum has',
-                          5,
-                        ),
-                        const SizedBox(width: 20),
-                        _buildReviewCard(
-                          'John Smith',
-                          'Great service! Highly recommend.',
-                          4,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 30),
           ],
         ),
@@ -765,111 +695,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCountMetric(String count, String label) {
-    return Column(
-      children: [
-        Text(
-          count,
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            color: AppColors.neutralBlack,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            color: AppColors.neutralBlack,
-            fontWeight: FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReviewCard(String name, String reviewText, int stars) {
-    return Container(
-      width: 250,
-      padding: const EdgeInsets.all(15.0),
-      decoration: BoxDecoration(
-        color: AppColors.neutralWhite,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.neutralMediumGray.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                name,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: AppColors.neutralBlack,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Row(
-                children: List.generate(5, (index) {
-                  return Icon(
-                    index < stars ? Icons.star : Icons.star_border,
-                    color: Colors.amber,
-                    size: 16,
-                  );
-                }),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: Text(
-                  reviewText,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppColors.neutralDarkGray,
-                    fontWeight: FontWeight.normal,
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            top: -30,
-            left: 15,
-            child: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryLightPurple.withOpacity(0.3),
-                border: Border.all(color: AppColors.neutralWhite, width: 3),
-              ),
-              child: Center(
-                child: Text(
-                  name[0],
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    color: AppColors.primaryPurple,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showServiceDetailsSheet(BuildContext context, String serviceTitle) {
     if (!(_allRounderSelectedSubServices.isNotEmpty &&
         serviceTitle != 'All-rounder')) {
@@ -891,10 +716,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _currentSelectedAllRounderTypes.clear();
         _currentBudget = 0;
         _currentNumShifts = 0;
-        _selectedDailyTimeSlots.clear();
+        _selectedTimeSlots.clear();
         _selectedCustomDate = null;
-        _selectedCustomFromTime = null;
-        _selectedCustomToTime = null;
         _currentServiceType = null;
       });
     }
@@ -976,7 +799,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Navigator.pop(context);
                 }
               },
-              // UPDATED: Padding added to prevent overlap
               child: Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1560,14 +1382,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  String _formatTime(TimeOfDay? time) {
-    if (time == null) {
-      return 'Select Time';
-    }
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
+  // String _formatTime(TimeOfDay? time) {
+  //   if (time == null) {
+  //     return 'Select Time';
+  //   }
+  //   final hour = time.hour.toString().padLeft(2, '0');
+  //   final minute = time.minute.toString().padLeft(2, '0');
+  //   return '$hour:$minute';
+  // }
 
   String _formatDate(DateTime? date) {
     if (date == null) {
@@ -1610,31 +1432,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _selectTime(
-    BuildContext context,
-    StateSetter modalSetState,
-    bool isFromTime,
-  ) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      modalSetState(() {
-        if (isFromTime) {
-          _selectedCustomFromTime = picked;
-        } else {
-          _selectedCustomToTime = picked;
-        }
-      });
-    }
-  }
+  // Future<void> _selectTime(
+  //   BuildContext context,
+  //   StateSetter modalSetState,
+  //   bool isFromTime,
+  // ) async {
+  //   final TimeOfDay? picked = await showTimePicker(
+  //     context: context,
+  //     initialTime: TimeOfDay.now(),
+  //     builder: (BuildContext context, Widget? child) {
+  //       return MediaQuery(
+  //         data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+  //         child: child!,
+  //       );
+  //     },
+  //   );
+  //   if (picked != null) {
+  //     modalSetState(() {
+  //       if (isFromTime) {
+  //         _selectedCustomFromTime = picked;
+  //       } else {
+  //         _selectedCustomToTime = picked;
+  //       }
+  //     });
+  //   }
+  // }
 
   Widget _buildServiceTypeOption(
     String text,
@@ -1698,6 +1520,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _showBudgetShiftModal(BuildContext context) {
+    bool serviceTypeError = false;
+    bool timeSlotError = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1714,7 +1539,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (didPop) return;
                 Navigator.pop(context);
               },
-              // UPDATED: Padding added to prevent overlap
               child: Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -1775,10 +1599,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 () => modalSetState(() {
                                   _currentServiceType = 'Daily';
                                   _currentNumShifts = 0;
-                                  _selectedDailyTimeSlots.clear();
+                                  _selectedTimeSlots.clear();
                                   _selectedCustomDate = null;
-                                  _selectedCustomFromTime = null;
-                                  _selectedCustomToTime = null;
+                                  serviceTypeError = false;
                                 }),
                               ),
                               const SizedBox(height: 10),
@@ -1798,28 +1621,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Wrap(
                                       spacing: 8.0,
                                       runSpacing: 8.0,
-                                      children: _dailyTimeSlotsOptions.map((
-                                        slot,
-                                      ) {
-                                        final isSelected =
-                                            _selectedDailyTimeSlots.contains(
-                                              slot,
-                                            );
+                                      children: _timeSlotsOptions.map((slot) {
+                                        final isSelected = _selectedTimeSlots
+                                            .contains(slot);
                                         return GestureDetector(
                                           onTap: () {
                                             modalSetState(() {
                                               if (isSelected) {
-                                                _selectedDailyTimeSlots.remove(
-                                                  slot,
-                                                );
+                                                _selectedTimeSlots.remove(slot);
                                               } else {
-                                                _selectedDailyTimeSlots.add(
-                                                  slot,
-                                                );
+                                                _selectedTimeSlots.add(slot);
                                               }
                                               _currentNumShifts =
-                                                  _selectedDailyTimeSlots
-                                                      .length;
+                                                  _selectedTimeSlots.length;
+                                              timeSlotError = false;
                                             });
                                           },
                                           child: Container(
@@ -1865,6 +1680,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         color: AppColors.neutralBlack,
                                       ),
                                     ),
+                                    if (timeSlotError)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: Text(
+                                          'Please select at least one time slot for Daily service.',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.red,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
                                     const SizedBox(height: 20),
                                   ],
                                 ),
@@ -1875,7 +1703,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 () => modalSetState(() {
                                   _currentServiceType = 'Custom';
                                   _currentNumShifts = 0;
-                                  _selectedDailyTimeSlots.clear();
+                                  _selectedTimeSlots.clear();
+                                  serviceTypeError = false;
                                 }),
                               ),
                               if (_currentServiceType == 'Custom')
@@ -1936,123 +1765,128 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () => _selectTime(
-                                              context,
-                                              modalSetState,
-                                              true,
+                                    if (_selectedCustomDate != null)
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 20),
+                                          Text(
+                                            'Available Time Slots',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.neutralDarkGray,
                                             ),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 15,
-                                                    vertical: 15,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Wrap(
+                                            spacing: 8.0,
+                                            runSpacing: 8.0,
+                                            children: _timeSlotsOptions.map((
+                                              slot,
+                                            ) {
+                                              final isSelected =
+                                                  _selectedTimeSlots.contains(
+                                                    slot,
+                                                  );
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  modalSetState(() {
+                                                    if (isSelected) {
+                                                      _selectedTimeSlots.remove(
+                                                        slot,
+                                                      );
+                                                    } else {
+                                                      _selectedTimeSlots.add(
+                                                        slot,
+                                                      );
+                                                    }
+                                                    _currentNumShifts =
+                                                        _selectedTimeSlots
+                                                            .length;
+                                                    timeSlotError = false;
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 15,
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? AppColors
+                                                              .primaryPurple
+                                                              .withOpacity(0.1)
+                                                        : AppColors
+                                                              .neutralWhite,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: isSelected
+                                                          ? AppColors
+                                                                .primaryPurple
+                                                          : AppColors
+                                                                .neutralMediumGray,
+                                                      width: 1.5,
+                                                    ),
                                                   ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.neutralWhite,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: AppColors
-                                                      .neutralMediumGray,
-                                                  width: 1.5,
-                                                ),
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'From',
+                                                  child: Text(
+                                                    slot,
                                                     style: GoogleFonts.poppins(
-                                                      fontSize: 14,
-                                                      color: AppColors
-                                                          .neutralDarkGray,
+                                                      fontSize: 13,
+                                                      color: isSelected
+                                                          ? AppColors
+                                                                .primaryPurple
+                                                          : AppColors
+                                                                .neutralBlack,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 5),
-                                                  Text(
-                                                    _formatTime(
-                                                      _selectedCustomFromTime,
-                                                    ),
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 16,
-                                                      color: AppColors
-                                                          .neutralBlack,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            'Number of Shifts: $_currentNumShifts',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.neutralBlack,
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () => _selectTime(
-                                              context,
-                                              modalSetState,
-                                              false,
-                                            ),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 15,
-                                                    vertical: 15,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.neutralWhite,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: AppColors
-                                                      .neutralMediumGray,
-                                                  width: 1.5,
+                                          if (timeSlotError)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 8.0,
+                                              ),
+                                              child: Text(
+                                                'Please select a date and at least one time slot for Custom service.',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.red,
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'To',
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 14,
-                                                      color: AppColors
-                                                          .neutralDarkGray,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 5),
-                                                  Text(
-                                                    _formatTime(
-                                                      _selectedCustomToTime,
-                                                    ),
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 16,
-                                                      color: AppColors
-                                                          .neutralBlack,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                   ],
+                                ),
+                              if (serviceTypeError)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    'Please select a service type (Daily or Custom).',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
@@ -2062,33 +1896,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
-                            String? errorMessage;
-                            if (_currentServiceType == null) {
-                              errorMessage =
-                                  'Please select a service type (Daily or Custom).';
-                            } else if (_currentServiceType == 'Daily') {
-                              if (_selectedDailyTimeSlots.isEmpty) {
-                                errorMessage =
-                                    'Please select at least one time slot for Daily service.';
+                            bool isValid = true;
+                            modalSetState(() {
+                              serviceTypeError = _currentServiceType == null;
+                              if (_currentServiceType == 'Daily') {
+                                timeSlotError = _selectedTimeSlots.isEmpty;
+                              } else if (_currentServiceType == 'Custom') {
+                                timeSlotError =
+                                    _selectedCustomDate == null ||
+                                    _selectedTimeSlots.isEmpty;
+                              } else {
+                                timeSlotError = false;
                               }
-                            } else if (_currentServiceType == 'Custom') {
-                              if (_selectedCustomDate == null ||
-                                  _selectedCustomFromTime == null ||
-                                  _selectedCustomToTime == null) {
-                                errorMessage =
-                                    'Please select a date, and both From and To times for Custom service.';
-                              }
+                            });
+
+                            if (serviceTypeError || timeSlotError) {
+                              isValid = false;
                             }
 
-                            if (errorMessage != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(errorMessage),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
+                            if (!isValid) return;
 
                             _currentBudget = _calculateFixedBudget();
 
@@ -2127,10 +1953,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       _currentSelectedAllRounderTypes,
                                   currentBudget: _currentBudget,
                                   currentNumShifts: _currentNumShifts,
-                                  currentSelectedShiftTimes:
-                                      _currentServiceType == 'Daily'
-                                      ? _selectedDailyTimeSlots.toSet()
-                                      : <String>{}.toSet(),
+                                  currentSelectedShiftTimes: _selectedTimeSlots
+                                      .toSet(),
                                   currentServiceType: _currentServiceType,
                                   currentSelectedDays:
                                       _currentServiceType == 'Custom' &&
@@ -2139,12 +1963,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           _formatDate(_selectedCustomDate),
                                         }.toSet()
                                       : <String>{}.toSet(),
-                                  customFromTime: _formatTime(
-                                    _selectedCustomFromTime,
-                                  ),
-                                  customToTime: _formatTime(
-                                    _selectedCustomToTime,
-                                  ),
                                   allRounderSubServiceData:
                                       _selectedServiceTitle == 'All-rounder'
                                       ? _allRounderSubServiceData
