@@ -52,10 +52,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
   int _currentNumShifts = 0; // Will be updated based on time slot selection
   String? _currentServiceType; // Daily or Custom
 
-  // For Daily service type
-  Set<String> _selectedDailyTimeSlots =
-      {}; // Changed to Set for multiple selections
-  final List<String> _dailyTimeSlotsOptions = [
+  // For Daily and Custom service types
+  Set<String> _selectedTimeSlots = {};
+  final List<String> _timeSlotsOptions = [
     '9:00 AM - 12:00 PM',
     '1:00 PM - 4:00 PM',
     '5:00 PM - 8:00 PM',
@@ -63,8 +62,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
 
   // For Custom service type
   DateTime? _selectedCustomDate;
-  TimeOfDay? _selectedCustomFromTime;
-  TimeOfDay? _selectedCustomToTime;
 
   // Store the selected service title to pass to the confirmation screen
   String _selectedServiceTitle = '';
@@ -356,10 +353,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
       _currentSelectedAllRounderTypes.clear();
       _currentBudget = 0;
       _currentNumShifts = 0;
-      _selectedDailyTimeSlots.clear();
+      _selectedTimeSlots.clear();
       _selectedCustomDate = null;
-      _selectedCustomFromTime = null;
-      _selectedCustomToTime = null;
       _currentServiceType = null;
     }
 
@@ -391,7 +386,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
               ),
               child: Container(
                 height: MediaQuery.of(context).size.height * 0.75,
-                // UPDATED: Padding adjusted to respect bottom safe area
                 padding: EdgeInsets.fromLTRB(
                   20,
                   20,
@@ -898,15 +892,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     );
   }
 
-  String _formatTime(TimeOfDay? time) {
-    if (time == null) {
-      return 'Select Time';
-    }
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
   String _formatDate(DateTime? date) {
     if (date == null) {
       return 'Select Date';
@@ -944,32 +929,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     if (picked != null && picked != _selectedCustomDate) {
       modalSetState(() {
         _selectedCustomDate = picked;
-      });
-    }
-  }
-
-  Future<void> _selectTime(
-    BuildContext context,
-    StateSetter modalSetState,
-    bool isFromTime,
-  ) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (BuildContext context, Widget? child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      modalSetState(() {
-        if (isFromTime) {
-          _selectedCustomFromTime = picked;
-        } else {
-          _selectedCustomToTime = picked;
-        }
       });
     }
   }
@@ -1036,6 +995,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
   }
 
   void _showBudgetShiftModal(BuildContext context) {
+    bool serviceTypeError = false;
+    bool timeSlotError = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1058,7 +1020,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                 ),
                 child: Container(
                   height: MediaQuery.of(context).size.height * 0.75,
-                  // UPDATED: Padding adjusted to respect bottom safe area
                   padding: EdgeInsets.fromLTRB(
                     20,
                     20,
@@ -1113,10 +1074,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                 () => modalSetState(() {
                                   _currentServiceType = 'Daily';
                                   _currentNumShifts = 0;
-                                  _selectedDailyTimeSlots.clear();
+                                  _selectedTimeSlots.clear();
                                   _selectedCustomDate = null;
-                                  _selectedCustomFromTime = null;
-                                  _selectedCustomToTime = null;
+                                  serviceTypeError = false;
                                 }),
                               ),
                               const SizedBox(height: 10),
@@ -1136,28 +1096,20 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                     Wrap(
                                       spacing: 8.0,
                                       runSpacing: 8.0,
-                                      children: _dailyTimeSlotsOptions.map((
-                                        slot,
-                                      ) {
-                                        final isSelected =
-                                            _selectedDailyTimeSlots.contains(
-                                              slot,
-                                            );
+                                      children: _timeSlotsOptions.map((slot) {
+                                        final isSelected = _selectedTimeSlots
+                                            .contains(slot);
                                         return GestureDetector(
                                           onTap: () {
                                             modalSetState(() {
                                               if (isSelected) {
-                                                _selectedDailyTimeSlots.remove(
-                                                  slot,
-                                                );
+                                                _selectedTimeSlots.remove(slot);
                                               } else {
-                                                _selectedDailyTimeSlots.add(
-                                                  slot,
-                                                );
+                                                _selectedTimeSlots.add(slot);
                                               }
                                               _currentNumShifts =
-                                                  _selectedDailyTimeSlots
-                                                      .length;
+                                                  _selectedTimeSlots.length;
+                                              timeSlotError = false;
                                             });
                                           },
                                           child: Container(
@@ -1203,6 +1155,19 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         color: AppColors.neutralBlack,
                                       ),
                                     ),
+                                    if (timeSlotError)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
+                                        child: Text(
+                                          'Please select at least one time slot for Daily service.',
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.red,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
                                     const SizedBox(height: 20),
                                   ],
                                 ),
@@ -1213,7 +1178,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                 () => modalSetState(() {
                                   _currentServiceType = 'Custom';
                                   _currentNumShifts = 0;
-                                  _selectedDailyTimeSlots.clear();
+                                  _selectedTimeSlots.clear();
+                                  serviceTypeError = false;
                                 }),
                               ),
                               if (_currentServiceType == 'Custom')
@@ -1274,123 +1240,128 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () => _selectTime(
-                                              context,
-                                              modalSetState,
-                                              true,
+                                    if (_selectedCustomDate != null)
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 20),
+                                          Text(
+                                            'Available Time Slots',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.neutralDarkGray,
                                             ),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 15,
-                                                    vertical: 15,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Wrap(
+                                            spacing: 8.0,
+                                            runSpacing: 8.0,
+                                            children: _timeSlotsOptions.map((
+                                              slot,
+                                            ) {
+                                              final isSelected =
+                                                  _selectedTimeSlots.contains(
+                                                    slot,
+                                                  );
+                                              return GestureDetector(
+                                                onTap: () {
+                                                  modalSetState(() {
+                                                    if (isSelected) {
+                                                      _selectedTimeSlots.remove(
+                                                        slot,
+                                                      );
+                                                    } else {
+                                                      _selectedTimeSlots.add(
+                                                        slot,
+                                                      );
+                                                    }
+                                                    _currentNumShifts =
+                                                        _selectedTimeSlots
+                                                            .length;
+                                                    timeSlotError = false;
+                                                  });
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 15,
+                                                        vertical: 8,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? AppColors
+                                                              .primaryPurple
+                                                              .withOpacity(0.1)
+                                                        : AppColors
+                                                              .neutralWhite,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          20,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: isSelected
+                                                          ? AppColors
+                                                                .primaryPurple
+                                                          : AppColors
+                                                                .neutralMediumGray,
+                                                      width: 1.5,
+                                                    ),
                                                   ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.neutralWhite,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: AppColors
-                                                      .neutralMediumGray,
-                                                  width: 1.5,
-                                                ),
-                                              ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'From',
+                                                  child: Text(
+                                                    slot,
                                                     style: GoogleFonts.poppins(
-                                                      fontSize: 14,
-                                                      color: AppColors
-                                                          .neutralDarkGray,
+                                                      fontSize: 13,
+                                                      color: isSelected
+                                                          ? AppColors
+                                                                .primaryPurple
+                                                          : AppColors
+                                                                .neutralBlack,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                     ),
                                                   ),
-                                                  const SizedBox(height: 5),
-                                                  Text(
-                                                    _formatTime(
-                                                      _selectedCustomFromTime,
-                                                    ),
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 16,
-                                                      color: AppColors
-                                                          .neutralBlack,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            'Number of Shifts: $_currentNumShifts',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.neutralBlack,
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () => _selectTime(
-                                              context,
-                                              modalSetState,
-                                              false,
-                                            ),
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 15,
-                                                    vertical: 15,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.neutralWhite,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: AppColors
-                                                      .neutralMediumGray,
-                                                  width: 1.5,
+                                          if (timeSlotError)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 8.0,
+                                              ),
+                                              child: Text(
+                                                'Please select a date and at least one time slot for Custom service.',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.red,
+                                                  fontSize: 12,
                                                 ),
                                               ),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    'To',
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 14,
-                                                      color: AppColors
-                                                          .neutralDarkGray,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 5),
-                                                  Text(
-                                                    _formatTime(
-                                                      _selectedCustomToTime,
-                                                    ),
-                                                    style: GoogleFonts.poppins(
-                                                      fontSize: 16,
-                                                      color: AppColors
-                                                          .neutralBlack,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
                                   ],
+                                ),
+                              if (serviceTypeError)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: Text(
+                                    'Please select a service type (Daily or Custom).',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                             ],
                           ),
@@ -1400,33 +1371,25 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
-                            String? errorMessage;
-                            if (_currentServiceType == null) {
-                              errorMessage =
-                                  'Please select a service type (Daily or Custom).';
-                            } else if (_currentServiceType == 'Daily') {
-                              if (_selectedDailyTimeSlots.isEmpty) {
-                                errorMessage =
-                                    'Please select at least one time slot for Daily service.';
+                            bool isValid = true;
+                            modalSetState(() {
+                              serviceTypeError = _currentServiceType == null;
+                              if (_currentServiceType == 'Daily') {
+                                timeSlotError = _selectedTimeSlots.isEmpty;
+                              } else if (_currentServiceType == 'Custom') {
+                                timeSlotError =
+                                    _selectedCustomDate == null ||
+                                    _selectedTimeSlots.isEmpty;
+                              } else {
+                                timeSlotError = false;
                               }
-                            } else if (_currentServiceType == 'Custom') {
-                              if (_selectedCustomDate == null ||
-                                  _selectedCustomFromTime == null ||
-                                  _selectedCustomToTime == null) {
-                                errorMessage =
-                                    'Please select a date, and both From and To times for Custom service.';
-                              }
+                            });
+
+                            if (serviceTypeError || timeSlotError) {
+                              isValid = false;
                             }
 
-                            if (errorMessage != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(errorMessage),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
+                            if (!isValid) return;
 
                             _currentBudget = _calculateFixedBudget();
 
@@ -1465,10 +1428,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                       _currentSelectedAllRounderTypes,
                                   currentBudget: _currentBudget,
                                   currentNumShifts: _currentNumShifts,
-                                  currentSelectedShiftTimes:
-                                      _currentServiceType == 'Daily'
-                                      ? _selectedDailyTimeSlots.toSet()
-                                      : <String>{}.toSet(),
+                                  currentSelectedShiftTimes: _selectedTimeSlots
+                                      .toSet(),
                                   currentServiceType: _currentServiceType,
                                   currentSelectedDays:
                                       _currentServiceType == 'Custom' &&
@@ -1477,12 +1438,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                           _formatDate(_selectedCustomDate),
                                         }.toSet()
                                       : <String>{}.toSet(),
-                                  customFromTime: _formatTime(
-                                    _selectedCustomFromTime,
-                                  ),
-                                  customToTime: _formatTime(
-                                    _selectedCustomToTime,
-                                  ),
                                   allRounderSubServiceData:
                                       _selectedServiceTitle == 'All-rounder'
                                       ? _allRounderSubServiceData
