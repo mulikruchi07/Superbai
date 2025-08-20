@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:superbai/theme.dart';
 import 'package:superbai/find_maid_screen.dart'; // Corrected import to FindMaidScreen
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
-import 'package:superbai/user_details_screen.dart'; // Import UserDetailsScreen
 import 'package:superbai/select_service_screen.dart'; // Import the new SelectServiceScreen
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ToggleScreen extends StatefulWidget {
   const ToggleScreen({super.key});
@@ -15,6 +16,31 @@ class ToggleScreen extends StatefulWidget {
 class _ToggleScreenState extends State<ToggleScreen> {
   String?
   _selectedOption; // Stores the currently selected option: 'yes' or 'no'
+  String _userName =
+      '...'; // State variable to hold the user's name, with a default loading state
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName(); // Fetch the user's name when the screen loads
+  }
+
+  // Function to fetch the user's full name from Firestore
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('DIM_USERS')
+          .doc(user.uid)
+          .get();
+      if (mounted && userDoc.exists && userDoc.data() != null) {
+        setState(() {
+          // Update the state with the fetched name
+          _userName = userDoc.data()!['FullName'] ?? 'User';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +81,7 @@ class _ToggleScreenState extends State<ToggleScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hello Ankit,',
+                'Hello $_userName,', // Display the fetched user name
                 style: GoogleFonts.poppins(
                   // Poppins for 'Hello Ankit,'
                   fontSize: 16, // Reduced font size for header

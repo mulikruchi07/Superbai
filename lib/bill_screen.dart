@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/dashboard_screen.dart'; // For navigation
-import 'package:superbai/booking_screen.dart'; // For navigation
-import 'package:superbai/account_screen.dart'; // Import AccountScreen
+import 'package:superbai/dashboard_screen.dart';
+import 'package:superbai/booking_screen.dart';
+import 'package:superbai/account_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class BillScreen extends StatefulWidget {
   const BillScreen({super.key});
@@ -13,7 +16,169 @@ class BillScreen extends StatefulWidget {
 }
 
 class _BillScreenState extends State<BillScreen> {
-  int _selectedNavbarIndex = 2; // Default to 'Bill' tab in navbar (index 2)
+  int _selectedNavbarIndex = 2;
+  List<Map<String, dynamic>> _bills = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBills();
+  }
+
+  Future<void> _fetchBills() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    final bookingSnapshot = await FirebaseFirestore.instance
+        .collection('FACT_BOOKINGS')
+        .where('UserID', isEqualTo: user.uid)
+        .get();
+
+    if (bookingSnapshot.docs.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    List<Map<String, dynamic>> fetchedBills = [];
+    for (var bookingDoc in bookingSnapshot.docs) {
+      final bookingData = bookingDoc.data();
+
+      if (bookingData['Status'] == 'Cancelled' ||
+          bookingData['Status'] == 'Backup Requested') {
+        continue;
+      }
+
+      final serviceDoc = await FirebaseFirestore.instance
+          .collection('DIM_SERVICES')
+          .doc(bookingData['ServiceID'])
+          .get();
+      final salaryDoc = await FirebaseFirestore.instance
+          .collection('DIM_SALARY')
+          .doc(bookingData['SalaryID'])
+          .get();
+      final timeSlotDoc = await FirebaseFirestore.instance
+          .collection('DIM_TIME_SLOTS')
+          .doc(bookingData['TimeSlotID'])
+          .get();
+
+      final paymentDate = (salaryDoc.data()?['PaymentDate'] as Timestamp)
+          .toDate();
+      final serviceEndTime = _getServiceEndTime(
+        (bookingData['BookingDate'] as Timestamp).toDate(),
+        timeSlotDoc.data(),
+      );
+      final dueDate = serviceEndTime.subtract(const Duration(hours: 1));
+
+      fetchedBills.add({
+        'amount': salaryDoc.data()?['Amount'] ?? 0.0,
+        'serviceName': serviceDoc.data()?['ServiceName'] ?? 'N/A',
+        'maidName': 'Rani Obey', // Placeholder
+        'maidId': '3545', // Placeholder
+        'billMonth': DateFormat('MMM yyyy').format(paymentDate),
+        'dueDate': dueDate, // Store the actual due date for sorting
+        'dueDateString': _getDueDateString(dueDate),
+      });
+    }
+
+    // --- SORTING LOGIC ---
+    // This custom sort function arranges bills based on their due date.
+    // 1. It checks if a bill is overdue. Overdue bills are given priority and
+    //    placed at the top of the list.
+    // 2. If both bills being compared are overdue, they are sorted by how
+    //    long they have been overdue (most overdue first).
+    // 3. If neither bill is overdue, they are sorted by their due date in
+    //    ascending order (nearest due date first).
+    fetchedBills.sort((a, b) {
+      final dueDateA = a['dueDate'] as DateTime;
+      final dueDateB = b['dueDate'] as DateTime;
+      final now = DateTime.now();
+
+      final isAOverdue = dueDateA.isBefore(now);
+      final isBOverdue = dueDateB.isBefore(now);
+
+      if (isAOverdue && !isBOverdue) {
+        return -1; // A is overdue, B is not. A comes first.
+      } else if (!isAOverdue && isBOverdue) {
+        return 1; // B is overdue, A is not. B comes first.
+      } else {
+        // Both are overdue or both are not. Sort by due date.
+        // For overdue, this sorts the most overdue first.
+        // For upcoming, this sorts the nearest due date first.
+        return dueDateA.compareTo(dueDateB);
+      }
+    });
+    // --- END OF SORTING LOGIC ---
+
+    if (mounted) {
+      setState(() {
+        _bills = fetchedBills;
+        _isLoading = false;
+      });
+    }
+  }
+
+  DateTime _getServiceEndTime(
+    DateTime bookingDate,
+    Map<String, dynamic>? timeSlotData,
+  ) {
+    if (timeSlotData == null) return bookingDate;
+
+    final timeSlots = (timeSlotData['TimeSlots'] as String? ?? '').split(', ');
+    if (timeSlots.isEmpty || timeSlots.first.isEmpty) return bookingDate;
+
+    try {
+      final endTimeStr = timeSlots.last.split(' - ')[1];
+      int hour = int.parse(endTimeStr.split(':')[0]);
+      final minute = int.parse(endTimeStr.split(':')[1].split(' ')[0]);
+      if (endTimeStr.contains('PM') && hour != 12) {
+        hour += 12;
+      }
+      if (endTimeStr.contains('AM') && hour == 12) {
+        hour = 0;
+      }
+      return DateTime(
+        bookingDate.year,
+        bookingDate.month,
+        bookingDate.day,
+        hour,
+        minute,
+      );
+    } catch (e) {
+      return bookingDate;
+    }
+  }
+
+  String _getDueDateString(DateTime dueDate) {
+    final now = DateTime.now();
+    final difference = dueDate.difference(now);
+
+    if (difference.isNegative) {
+      return 'Bill is overdue';
+    } else if (difference.inDays > 0) {
+      return 'Bill due in ${difference.inDays} days';
+    } else if (difference.inHours > 0) {
+      return 'Bill due in ${difference.inHours} hours';
+    } else {
+      return 'Bill due in ${difference.inMinutes} minutes';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,17 +187,7 @@ class _BillScreenState extends State<BillScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
-          onPressed: () {
-            // Navigate back to the DashboardScreen and clear the navigation stack
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
-              (Route<dynamic> route) => false, // This condition removes all previous routes
-            );
-          },
-        ),
+        automaticallyImplyLeading: false, // Removes the back arrow
         title: Text(
           'Bills',
           style: GoogleFonts.poppins(
@@ -41,177 +196,64 @@ class _BillScreenState extends State<BillScreen> {
             fontWeight: FontWeight.normal,
           ),
         ),
-        centerTitle: false,
+        centerTitle: false, // Aligns title to the left
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Current Bill',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal, // Not bold
-              ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _bills.isEmpty
+          ? Center(child: Text('No bills found.', style: GoogleFonts.poppins()))
+          : ListView.builder(
+              padding: const EdgeInsets.all(20.0),
+              itemCount: _bills.length,
+              itemBuilder: (context, index) {
+                return _BillCard(billData: _bills[index]);
+              },
             ),
-            const SizedBox(height: 15),
-            // Main Container surrounding Current Bill Card and Maid details
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(15.0), // Padding inside this container
-              decoration: BoxDecoration(
-                color: AppColors.primaryPurple.withOpacity(0.1), // Transparent light purple
-                borderRadius: BorderRadius.circular(10), // Little curve
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Current Bill Card (inside the main container)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20.0),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.primaryPurple, AppColors.primaryPink],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(10), // Little curve
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.neutralMediumGray.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          '₹ 2000', // Example amount
-                          style: GoogleFonts.poppins(
-                            fontSize: 32, // Large font size
-                            color: AppColors.neutralWhite,
-                            fontWeight: FontWeight.w600, // Semi-bold
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Total Charge for Maid Service',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: AppColors.neutralWhite,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Pay Now clicked!')),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.neutralWhite, // White background
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10), // Little curve
-                              ),
-                            ),
-                            child: Text(
-                              'PAY NOW',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                color: AppColors.neutralBlack, // Black text
-                                fontWeight: FontWeight.normal, // Not bold
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20), // Spacing between bill card and maid details
-                  // Maid details section (inside the main container)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Maid : Rani Obey (3545)',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.neutralBlack,
-                              fontWeight: FontWeight.normal,
-                            ),
-                          ),
-                          Text(
-                            'Aug 2023', // Example date
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: AppColors.neutralBlack,
-                              fontWeight: FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'For Cleaning',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppColors.neutralBlack,
-                          fontWeight: FontWeight.w500, // Semi-bold as per image
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Bill due in 2 days',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.red, // Changed to red
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Spacer(), // Pushes content up and navbar down
-          ],
-        ),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: AppColors.neutralWhite,
         selectedItemColor: AppColors.primaryPurple,
         unselectedItemColor: AppColors.neutralDarkGray,
         selectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-        unselectedLabelStyle: GoogleFonts.poppins(fontWeight: FontWeight.normal),
+        unselectedLabelStyle: GoogleFonts.poppins(
+          fontWeight: FontWeight.normal,
+        ),
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedNavbarIndex,
         items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home, color: _selectedNavbarIndex == 0 ? AppColors.primaryPurple : AppColors.neutralDarkGray),
+            icon: Icon(
+              Icons.home,
+              color: _selectedNavbarIndex == 0
+                  ? AppColors.primaryPurple
+                  : AppColors.neutralDarkGray,
+            ),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.book, color: _selectedNavbarIndex == 1 ? AppColors.primaryPurple : AppColors.neutralDarkGray),
+            icon: Icon(
+              Icons.book,
+              color: _selectedNavbarIndex == 1
+                  ? AppColors.primaryPurple
+                  : AppColors.neutralDarkGray,
+            ),
             label: 'Booking',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.receipt, color: _selectedNavbarIndex == 2 ? AppColors.primaryPurple : AppColors.neutralDarkGray),
+            icon: Icon(
+              Icons.receipt,
+              color: _selectedNavbarIndex == 2
+                  ? AppColors.primaryPurple
+                  : AppColors.neutralDarkGray,
+            ),
             label: 'Bill',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person, color: _selectedNavbarIndex == 3 ? AppColors.primaryPurple : AppColors.neutralDarkGray),
+            icon: Icon(
+              Icons.person,
+              color: _selectedNavbarIndex == 3
+                  ? AppColors.primaryPurple
+                  : AppColors.neutralDarkGray,
+            ),
             label: 'Account',
           ),
         ],
@@ -219,7 +261,6 @@ class _BillScreenState extends State<BillScreen> {
           setState(() {
             _selectedNavbarIndex = index;
           });
-          // Handle navigation
           if (index == 0) {
             Navigator.pushAndRemoveUntil(
               context,
@@ -231,18 +272,166 @@ class _BillScreenState extends State<BillScreen> {
               context,
               MaterialPageRoute(builder: (context) => const BookingScreen()),
             );
-          } else if (index == 2) {
-            // Already on BillScreen, do nothing or show a snackbar
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Already on Bill page')),
-            );
           } else if (index == 3) {
-            Navigator.pushReplacement( // Navigate to AccountScreen
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => const AccountScreen()),
             );
           }
         },
+      ),
+    );
+  }
+}
+
+// New widget to display a single bill card
+class _BillCard extends StatelessWidget {
+  final Map<String, dynamic> billData;
+
+  const _BillCard({required this.billData});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bill for ${billData['billMonth']}',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: AppColors.neutralBlack,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+          const SizedBox(height: 15),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15.0),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20.0),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primaryPurple, AppColors.primaryPink],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.neutralMediumGray.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        '₹ ${billData['amount'].toInt()}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          color: AppColors.neutralWhite,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Total Charge for Maid Service',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppColors.neutralWhite,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Pay Now clicked!')),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.neutralWhite,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            'PAY NOW',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: AppColors.neutralBlack,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Maid : ${billData['maidName']} (${billData['maidId']})',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.neutralBlack,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                        Text(
+                          billData['billMonth'],
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.neutralBlack,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'For ${billData['serviceName']}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralBlack,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      billData['dueDateString'],
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.red,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

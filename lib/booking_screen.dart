@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/complaint_screen.dart';
@@ -8,6 +9,8 @@ import 'package:superbai/account_screen.dart';
 import 'dart:async';
 import 'dart:ui'; // Required for BackdropFilter
 import 'package:superbai/maid_linking_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -20,24 +23,14 @@ class _BookingScreenState extends State<BookingScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _selectedNavbarIndex = 1;
-  bool _isLoading = false;
+  bool _isLoading = true; // Master loading state for initial fetch
   String _loadingMessage = '';
 
   // --- State Management for Bookings ---
-  List<Map<String, dynamic>> _activeBookings = [
-    {
-      'id': 1,
-      'name': 'Jane Doe',
-      'service': 'Cleaning',
-      'contact': '9873724556',
-      'salary': '2000/mon',
-      'timing': '9am - 11am',
-      'rating': 4.0,
-      'maidId': '3231',
-    },
-  ];
-
+  List<Map<String, dynamic>> _activeBookings = [];
   List<Map<String, dynamic>> _instantBookings = [];
+  List<Map<String, dynamic>> _previousBookings = []; // For completed bookings
+  StreamSubscription? _bookingSubscription;
 
   @override
   void initState() {
@@ -48,15 +41,250 @@ class _BookingScreenState extends State<BookingScreen>
         setState(() {});
       }
     });
+    _fetchBookings();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _bookingSubscription?.cancel();
     super.dispose();
   }
 
-  // --- Loading Overlay Logic ---
+  // --- PERFORMANCE OPTIMIZATION ---
+  // This function has been refactored to fetch booking details more efficiently.
+  // Instead of fetching details for each booking individually (N+1 problem),
+  // it now fetches all bookings, then gets all related service, timeslot, and
+  // salary documents in three batch requests. This significantly reduces the
+  // number of database calls and improves loading speed.
+  void _fetchBookings() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final query = FirebaseFirestore.instance
+        .collection('FACT_BOOKINGS')
+        .where('UserID', isEqualTo: user.uid)
+        .where('Status', isNotEqualTo: 'Cancelled');
+
+    _bookingSubscription = query.snapshots().listen(
+      (snapshot) async {
+        if (!mounted) return;
+        if (snapshot.docs.isEmpty) {
+          _processAndSetBookings([]);
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
+
+        List<Map<String, dynamic>> bookingsData = snapshot.docs.map((doc) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).toList();
+
+        // Collect all unique IDs to fetch in batches
+        final serviceIds = bookingsData
+            .map((b) => b['ServiceID'] as String)
+            .toSet()
+            .toList();
+        final timeSlotIds = bookingsData
+            .map((b) => b['TimeSlotID'] as String)
+            .toSet()
+            .toList();
+        final salaryIds = bookingsData
+            .map((b) => b['SalaryID'] as String)
+            .toSet()
+            .toList();
+
+        // Fetch related documents in parallel using 'whereIn'
+        final serviceDocsFuture = serviceIds.isNotEmpty
+            ? FirebaseFirestore.instance
+                  .collection('DIM_SERVICES')
+                  .where(FieldPath.documentId, whereIn: serviceIds)
+                  .get()
+            : Future.value(null);
+        final timeSlotDocsFuture = timeSlotIds.isNotEmpty
+            ? FirebaseFirestore.instance
+                  .collection('DIM_TIME_SLOTS')
+                  .where(FieldPath.documentId, whereIn: timeSlotIds)
+                  .get()
+            : Future.value(null);
+        final salaryDocsFuture = salaryIds.isNotEmpty
+            ? FirebaseFirestore.instance
+                  .collection('DIM_SALARY')
+                  .where(FieldPath.documentId, whereIn: salaryIds)
+                  .get()
+            : Future.value(null);
+
+        final results = await Future.wait([
+          serviceDocsFuture,
+          timeSlotDocsFuture,
+          salaryDocsFuture,
+        ]);
+
+        final serviceDocs = results[0] as QuerySnapshot<Map<String, dynamic>>?;
+        final timeSlotDocs = results[1] as QuerySnapshot<Map<String, dynamic>>?;
+        final salaryDocs = results[2] as QuerySnapshot<Map<String, dynamic>>?;
+
+        // Create maps for efficient O(1) lookup
+        final serviceMap = {
+          for (var doc in serviceDocs?.docs ?? []) doc.id: doc.data(),
+        };
+        final timeSlotMap = {
+          for (var doc in timeSlotDocs?.docs ?? []) doc.id: doc.data(),
+        };
+        final salaryMap = {
+          for (var doc in salaryDocs?.docs ?? []) doc.id: doc.data(),
+        };
+
+        // Combine booking data with the fetched related data
+        List<Map<String, dynamic>> allBookings = [];
+        for (var bookingData in bookingsData) {
+          final service = serviceMap[bookingData['ServiceID']];
+          final timeSlot = timeSlotMap[bookingData['TimeSlotID']];
+          final salary = salaryMap[bookingData['SalaryID']];
+
+          allBookings.add({
+            ...bookingData,
+            'service': service?['ServiceName'] ?? 'N/A',
+            'timing': timeSlot?['TimeSlots'] ?? 'N/A',
+            'salary': 'Rs. ${salary?['Amount']?.toInt() ?? 0}',
+            'timeSlotData': timeSlot,
+            'name': 'Maid Name', // This seems to be hardcoded, leaving as is
+            'contact':
+                '9876543210', // This seems to be hardcoded, leaving as is
+            'rating': 4.0, // This seems to be hardcoded, leaving as is
+            'maidId': bookingData['MaidID'] ?? 'N/A',
+          });
+        }
+
+        _processAndSetBookings(allBookings);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      },
+      onError: (error) {
+        debugPrint("Error fetching bookings: $error");
+        if (mounted) setState(() => _isLoading = false);
+      },
+    );
+  }
+
+  DateTime _getBookingDateTime(
+    Map<String, dynamic> booking, {
+    bool getEndTime = false,
+  }) {
+    final timeSlotData = booking['timeSlotData'] as Map<String, dynamic>?;
+    if (timeSlotData == null) return DateTime(1970);
+
+    final timeSlots = (timeSlotData['TimeSlots'] as String? ?? '').split(', ');
+    if (timeSlots.isEmpty || timeSlots.first.isEmpty) {
+      return (booking['BookingDate'] as Timestamp).toDate();
+    }
+
+    DateTime datePart;
+    if ((timeSlotData['SelectedDays'] as List?)?.isNotEmpty ?? false) {
+      try {
+        datePart = DateFormat(
+          'd/M/yyyy',
+        ).parse((timeSlotData['SelectedDays'] as List).first);
+      } catch (e) {
+        datePart = (booking['BookingDate'] as Timestamp).toDate();
+      }
+    } else {
+      datePart = (booking['BookingDate'] as Timestamp).toDate();
+    }
+
+    try {
+      final timeStr = getEndTime
+          ? timeSlots.last.split(' - ')[1]
+          : timeSlots.first.split(' - ')[0];
+      int hour = int.parse(timeStr.split(':')[0]);
+      final minute = int.parse(timeStr.split(':')[1].split(' ')[0]);
+      if (timeStr.contains('PM') && hour != 12) {
+        hour += 12;
+      }
+      if (timeStr.contains('AM') && hour == 12) {
+        hour = 0; // Midnight case
+      }
+      return DateTime(
+        datePart.year,
+        datePart.month,
+        datePart.day,
+        hour,
+        minute,
+      );
+    } catch (e) {
+      return datePart;
+    }
+  }
+
+  void _processAndSetBookings(List<Map<String, dynamic>> allBookings) {
+    allBookings.sort(
+      (a, b) => _getBookingDateTime(b).compareTo(_getBookingDateTime(a)),
+    );
+
+    List<Map<String, dynamic>> active = [];
+    List<Map<String, dynamic>> instant = [];
+    List<Map<String, dynamic>> previous = [];
+    bool ongoingFound = false;
+    bool upNextFound = false;
+
+    for (final booking in allBookings) {
+      String status = booking['Status'];
+
+      if (status != 'Cancelled' && status != 'Backup Requested') {
+        final startTime = _getBookingDateTime(booking);
+        final endTime = _getBookingDateTime(booking, getEndTime: true);
+        final now = DateTime.now();
+
+        if (now.isAfter(endTime)) {
+          status = 'Completed';
+        } else if (now.isAfter(startTime) && now.isBefore(endTime)) {
+          status = 'Ongoing';
+          ongoingFound = true;
+        } else if (ongoingFound && !upNextFound) {
+          status = 'Up next';
+          upNextFound = true;
+        } else {
+          status = 'Soon';
+        }
+      }
+      booking['Status'] = status;
+
+      if (status == 'Completed') {
+        previous.add(booking);
+      } else if (status != 'Cancelled' && status != 'Backup Requested') {
+        if (booking['BookingType'] == 'Instant') {
+          instant.add(booking);
+        } else {
+          active.add(booking);
+        }
+      }
+    }
+
+    if (!ongoingFound) {
+      final nextActiveIndex = active.indexWhere((b) => b['Status'] == 'Soon');
+      if (nextActiveIndex != -1) {
+        active[nextActiveIndex]['Status'] = 'Up next';
+      }
+      final nextInstantIndex = instant.indexWhere((b) => b['Status'] == 'Soon');
+      if (nextInstantIndex != -1) {
+        instant[nextInstantIndex]['Status'] = 'Up next';
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _activeBookings = active;
+        _instantBookings = instant;
+        _previousBookings = previous;
+      });
+    }
+  }
+
   void _showLoading(String message) {
     setState(() {
       _isLoading = true;
@@ -71,9 +299,6 @@ class _BookingScreenState extends State<BookingScreen>
     });
   }
 
-  // --- Dialog and Page Logic ---
-
-  // 1. Cancel Booking Flow
   void _showCancelSuccessDialog() {
     showDialog(
       context: context,
@@ -103,7 +328,7 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  void _showCancelDialog(int bookingId) {
+  void _showCancelDialog(String bookingId) {
     TextEditingController reasonController = TextEditingController();
     bool showReasonField = false;
 
@@ -202,13 +427,12 @@ class _BookingScreenState extends State<BookingScreen>
                 ],
                 if (showReasonField)
                   TextButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext); // Close the dialog
-                      setState(() {
-                        _activeBookings.removeWhere(
-                          (b) => b['id'] == bookingId,
-                        );
-                      });
+                    onPressed: () async {
+                      Navigator.pop(dialogContext);
+                      await FirebaseFirestore.instance
+                          .collection('FACT_BOOKINGS')
+                          .doc(bookingId)
+                          .update({'Status': 'Cancelled'});
                       _showCancelSuccessDialog();
                     },
                     child: Text(
@@ -227,8 +451,13 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  // 2. Reschedule Booking Flow
-  void _showRescheduleDialog() async {
+  // --- PERMISSION FIX ---
+  // The original code tried to UPDATE the existing DIM_TIME_SLOTS document,
+  // which caused a permission error.
+  // This updated function now CREATES a NEW DIM_TIME_SLOTS document and updates
+  // the FACT_BOOKINGS document to point to the new one. This aligns with the
+  // permissions and matches the logic of the working "Backup Maid" feature.
+  void _showRescheduleDialog(String bookingId, String timeSlotId) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -236,20 +465,67 @@ class _BookingScreenState extends State<BookingScreen>
       },
     );
 
-    if (result != null) {
-      _showLoading('Searching for maid...');
-      await Future.delayed(const Duration(seconds: 2));
-      _hideLoading();
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MaidLinkingScreen()),
-        );
+    if (result != null && mounted) {
+      _showLoading('Rescheduling booking...');
+      try {
+        final newTimeSlots =
+            '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}';
+        final newDate = result['date'] as DateTime;
+        final newDateString = DateFormat('d/M/yyyy').format(newDate);
+
+        // Create a new time slot document instead of updating the old one
+        final newTimeSlotDoc = await FirebaseFirestore.instance
+            .collection('DIM_TIME_SLOTS')
+            .add({
+              'TimeSlots': newTimeSlots,
+              'SelectedDays': [newDateString],
+              'NumberOfShifts': 1, // Assuming 1 for a rescheduled slot
+            });
+
+        // Update the booking to point to the new time slot ID
+        await FirebaseFirestore.instance
+            .collection('FACT_BOOKINGS')
+            .doc(bookingId)
+            .update({
+              'BookingDate': Timestamp.fromDate(newDate),
+              'TimeSlotID': newTimeSlotDoc.id, // Point to the new document
+            });
+
+        // Manually update local state for immediate UI feedback
+        if (mounted) {
+          setState(() {
+            int index = _activeBookings.indexWhere((b) => b['id'] == bookingId);
+            if (index != -1) {
+              final updatedBooking = Map<String, dynamic>.from(
+                _activeBookings[index],
+              );
+
+              updatedBooking['timing'] = newTimeSlots;
+              updatedBooking['BookingDate'] = Timestamp.fromDate(newDate);
+              updatedBooking['TimeSlotID'] = newTimeSlotDoc.id;
+
+              final updatedTimeSlotData = Map<String, dynamic>.from(
+                updatedBooking['timeSlotData'] ?? {},
+              );
+              updatedTimeSlotData['TimeSlots'] = newTimeSlots;
+              updatedTimeSlotData['SelectedDays'] = [newDateString];
+              updatedBooking['timeSlotData'] = updatedTimeSlotData;
+
+              _activeBookings[index] = updatedBooking;
+            }
+          });
+        }
+      } catch (e) {
+        debugPrint("Error rescheduling booking: $e");
+        // Optionally show an error dialog to the user
+      } finally {
+        if (mounted) {
+          _hideLoading();
+        }
       }
     }
   }
 
-  // 3. Replace Maid Flow
   void _showReplaceDialog() {
     String? selectedReason;
     final reasons = ['Time issue', 'Price issue', 'Service issue', 'Other'];
@@ -337,8 +613,7 @@ class _BookingScreenState extends State<BookingScreen>
     });
   }
 
-  // 4. Backup Maid Flow
-  void _showBackupMaidDialog() {
+  void _showBackupMaidDialog(Map<String, dynamic> originalBooking) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -386,12 +661,14 @@ class _BookingScreenState extends State<BookingScreen>
       },
     ).then((confirmed) {
       if (confirmed == true) {
-        _showRescheduleDialogForBackup();
+        _showRescheduleDialogForBackup(originalBooking);
       }
     });
   }
 
-  void _showRescheduleDialogForBackup() async {
+  void _showRescheduleDialogForBackup(
+    Map<String, dynamic> originalBooking,
+  ) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -399,30 +676,51 @@ class _BookingScreenState extends State<BookingScreen>
       },
     );
 
-    if (result != null) {
-      _showLoading('Searching for maid...');
-      await Future.delayed(const Duration(seconds: 2));
-      _hideLoading();
-      if (mounted) {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const MaidLinkingScreen()),
-        );
-        // Add new instant booking card after returning from linking screen
-        setState(() {
-          _instantBookings.add({
-            'id': DateTime.now().millisecondsSinceEpoch,
-            'name': 'Backup Maid',
-            'service': 'Cleaning',
-            'contact': '9876543210',
-            'salary': '500/day',
-            'timing':
-                '${result['fromTime'].format(context)} - ${result['toTime'].format(context)}',
-            'rating': 5.0,
-            'maidId': 'INSTANT',
-          });
-          _tabController.animateTo(1);
+    if (result != null && mounted) {
+      _showLoading('Searching for backup maid...');
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return;
+
+        final newTimeSlotDoc = await FirebaseFirestore.instance
+            .collection('DIM_TIME_SLOTS')
+            .add({
+              'NumberOfShifts': 1,
+              'TimeSlots':
+                  '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}',
+              'SelectedDays': [DateFormat('d/M/yyyy').format(result['date'])],
+            });
+
+        final newSalaryDoc = await FirebaseFirestore.instance
+            .collection('DIM_SALARY')
+            .add({
+              'Amount': 500.0,
+              'PaymentDate': Timestamp.fromDate(result['date']),
+            });
+
+        await FirebaseFirestore.instance.collection('FACT_BOOKINGS').add({
+          'UserID': user.uid,
+          'MaidID': null,
+          'ServiceID': originalBooking['ServiceID'],
+          'TimeSlotID': newTimeSlotDoc.id,
+          'SalaryID': newSalaryDoc.id,
+          'BookingDate': Timestamp.fromDate(result['date']),
+          'TimeType': 'Custom',
+          'Status': 'Up next',
+          'BookingType': 'Instant',
         });
+
+        await FirebaseFirestore.instance
+            .collection('FACT_BOOKINGS')
+            .doc(originalBooking['id'])
+            .update({'Status': 'Backup Requested'});
+
+        if (mounted) {
+          _hideLoading();
+          _tabController.animateTo(1);
+        }
+      } catch (e) {
+        if (mounted) _hideLoading();
       }
     }
   }
@@ -538,27 +836,11 @@ class _BookingScreenState extends State<BookingScreen>
           ),
           if (_isLoading)
             Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(
-                  color: Colors.black.withOpacity(0.3),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          color: AppColors.primaryPurple,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          _loadingMessage,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: AppColors.neutralWhite,
-                          ),
-                        ),
-                      ],
-                    ),
+              child: Container(
+                color: Colors.black.withOpacity(0.1),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryPurple,
                   ),
                 ),
               ),
@@ -606,23 +888,6 @@ class _BookingScreenState extends State<BookingScreen>
   }
 
   Widget _buildDailyBookingTab() {
-    final List<Map<String, String>> previousBookings = [
-      {
-        'name': 'Sophie T',
-        'role': 'House Maid',
-        'rating': '4.5',
-        'date': '21 Aug 23',
-        'duration': '2 months',
-      },
-      {
-        'name': 'Jane Doe',
-        'role': 'Cook',
-        'rating': '4.0',
-        'date': '05 May 23',
-        'duration': '8 months',
-      },
-    ];
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -637,12 +902,18 @@ class _BookingScreenState extends State<BookingScreen>
             ),
           ),
           const SizedBox(height: 15),
-          if (_activeBookings.isEmpty)
-            const Center(child: Text('No active bookings.'))
-          else
-            ..._activeBookings
-                .map((booking) => _buildActiveBookingCard(booking))
-                .toList(),
+          _isLoading && _activeBookings.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : _activeBookings.isEmpty
+              ? const Center(child: Text('No active bookings.'))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _activeBookings.length,
+                  itemBuilder: (context, index) {
+                    return _buildActiveBookingCard(_activeBookings[index]);
+                  },
+                ),
           const SizedBox(height: 25),
           Text(
             'Previous Bookings',
@@ -653,290 +924,370 @@ class _BookingScreenState extends State<BookingScreen>
             ),
           ),
           const SizedBox(height: 15),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: previousBookings.length,
-            itemBuilder: (context, index) {
-              final booking = previousBookings[index];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.secondaryPastelPurple,
-                    backgroundImage: NetworkImage(
-                      'https://placehold.co/80x80/${ColorHex(AppColors.secondaryPastelPurple).toHex().substring(1)}/${ColorHex(AppColors.primaryPurple).toHex().substring(1)}?text=${booking['name']![0]}',
-                    ),
-                  ),
-                  title: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        booking['name']!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: AppColors.neutralBlack,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(5, (starIndex) {
-                          double rating = double.parse(booking['rating']!);
-                          return Icon(
-                            Icons.star_rate_rounded,
-                            color: starIndex < rating.floor()
-                                ? AppColors.emotionYellow
-                                : AppColors.neutralMediumGray,
-                            size: 12,
-                          );
-                        }),
-                      ),
-                      Text(
-                        booking['role']!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AppColors.neutralDarkGray,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  trailing: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        booking['date']!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AppColors.neutralDarkGray,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                      Text(
-                        booking['duration']!,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          color: AppColors.neutralDarkGray,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
+          _isLoading && _previousBookings.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : _previousBookings.isEmpty
+              ? const Center(child: Text('No previous bookings.'))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _previousBookings.length,
+                  itemBuilder: (context, index) {
+                    final booking = _previousBookings[index];
+                    return _buildPreviousBookingCard(booking);
+                  },
                 ),
-              );
-            },
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActiveBookingCard(Map<String, dynamic> booking) {
-    bool isInstant = booking['maidId'] == 'INSTANT';
-    return Column(
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(15.0),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.primaryPurple, AppColors.primaryPink],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.neutralMediumGray.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: AppColors.neutralWhite,
-                        backgroundImage: NetworkImage(
-                          'https://placehold.co/100x100/FFFFFF/5D4EFF?text=${booking['name'][0]}',
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: List.generate(5, (starIndex) {
-                          return Icon(
-                            Icons.star_rate_rounded,
-                            color: starIndex < (booking['rating'] as double)
-                                ? AppColors.emotionYellow
-                                : AppColors.neutralWhite.withOpacity(0.5),
-                            size: 16,
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'ID: ${booking['maidId']}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          color: AppColors.neutralWhite,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildDetailRowAligned('Name', booking['name']),
-                        _buildDetailRowAligned('Service', booking['service']),
-                        _buildDetailRowAligned('Contact', booking['contact']),
-                        _buildDetailRowAligned('Salary', booking['salary']),
-                        _buildDetailRowAligned('Timing', booking['timing']),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (!isInstant) ...[
-                const SizedBox(height: 15),
-                Wrap(
-                  spacing: 5.0,
-                  runSpacing: 5.0,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _buildOutlineButton(
-                      'Cancel',
-                      Icons.close,
-                      () => _showCancelDialog(booking['id']),
-                    ),
-                    _buildOutlineButton(
-                      'Reschedule',
-                      Icons.calendar_today_outlined,
-                      _showRescheduleDialog,
-                    ),
-                    _buildOutlineButton(
-                      'Replace',
-                      Icons.loop,
-                      _showReplaceDialog,
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (!isInstant) ...[
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ComplaintScreen(),
-                ),
-              ),
-              icon: Icon(
-                Icons.edit_note_outlined,
-                color: AppColors.neutralBlack,
-                size: 18,
-              ),
-              label: Text(
-                'File a Complaint',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: AppColors.neutralBlack,
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _showBackupMaidDialog,
-              icon: Icon(Icons.group, color: AppColors.neutralWhite, size: 24),
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Get a Backup Maid',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.neutralWhite,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: AppColors.neutralWhite,
-                    size: 14,
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: AppColors.neutralWhite,
-                    size: 14,
-                  ),
-                ],
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryPink,
-                padding: const EdgeInsets.symmetric(vertical: 0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30.0),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
     );
   }
 
   Widget _buildInstantBookingTab() {
-    return SingleChildScrollView(
+    return _isLoading && _instantBookings.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : _buildBookingList(_instantBookings);
+  }
+
+  Widget _buildBookingList(List<Map<String, dynamic>> bookings) {
+    if (bookings.isEmpty) {
+      return Center(
+        child: Text('No bookings found.', style: GoogleFonts.poppins()),
+      );
+    }
+    return ListView.builder(
       padding: const EdgeInsets.all(20.0),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) {
+        return _buildActiveBookingCard(bookings[index]);
+      },
+    );
+  }
+
+  Widget _buildActiveBookingCard(Map<String, dynamic> booking) {
+    bool isInstant = booking['BookingType'] == 'Instant';
+    final bookingDateTime = _getBookingDateTime(booking);
+    final dateString = DateFormat('dd MMM yyyy').format(bookingDateTime);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Instant Booking',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              color: AppColors.neutralBlack,
-              fontWeight: FontWeight.normal,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primaryPurple, AppColors.primaryPink],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neutralMediumGray.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundColor: AppColors.neutralWhite,
+                          backgroundImage: NetworkImage(
+                            'https://placehold.co/100x100/FFFFFF/5D4EFF?text=${booking['name'][0]}',
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (starIndex) {
+                            return Icon(
+                              Icons.star_rate_rounded,
+                              color: starIndex < (booking['rating'] as double)
+                                  ? AppColors.emotionYellow
+                                  : AppColors.neutralWhite.withOpacity(0.5),
+                              size: 16,
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'ID: ${booking['maidId']}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            color: AppColors.neutralWhite,
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRowAligned('Name', booking['name']),
+                          _buildDetailRowAligned(
+                            'Service',
+                            booking['service'],
+                            isMultiLine: booking['service'].startsWith(
+                              'All-rounder',
+                            ),
+                          ),
+                          _buildDetailRowAligned('Contact', booking['contact']),
+                          _buildDetailRowAligned('Salary', booking['salary']),
+                          _buildDetailRowAligned('Date', dateString),
+                          _buildDetailRowAligned(
+                            'Timing',
+                            booking['timing'],
+                            isMultiLine: true,
+                          ),
+                          _buildDetailRowAligned(
+                            'Status',
+                            booking['Status'] ?? 'Loading...',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (!isInstant) ...[
+                  const SizedBox(height: 15),
+                  Wrap(
+                    spacing: 5.0,
+                    runSpacing: 5.0,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      _buildOutlineButton(
+                        'Cancel',
+                        Icons.close,
+                        () => _showCancelDialog(booking['id']),
+                      ),
+                      _buildOutlineButton(
+                        'Reschedule',
+                        Icons.calendar_today_outlined,
+                        () => _showRescheduleDialog(
+                          booking['id'],
+                          booking['TimeSlotID'],
+                        ),
+                      ),
+                      _buildOutlineButton(
+                        'Replace',
+                        Icons.loop,
+                        _showReplaceDialog,
+                      ),
+                    ],
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 15),
-          if (_instantBookings.isEmpty)
-            const Center(child: Text('No instant bookings.'))
-          else
-            ..._instantBookings
-                .map((booking) => _buildActiveBookingCard(booking))
-                .toList(),
+          if (!isInstant) ...[
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ComplaintScreen(),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.edit_note_outlined,
+                  color: AppColors.neutralBlack,
+                  size: 18,
+                ),
+                label: Text(
+                  'File a Complaint',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: AppColors.neutralBlack,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () => _showBackupMaidDialog(booking),
+                icon: Icon(
+                  Icons.group,
+                  color: AppColors.neutralWhite,
+                  size: 24,
+                ),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Get a Backup Maid',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppColors.neutralWhite,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: AppColors.neutralWhite,
+                      size: 14,
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      color: AppColors.neutralWhite,
+                      size: 14,
+                    ),
+                  ],
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPink,
+                  padding: const EdgeInsets.symmetric(vertical: 0),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildDetailRowAligned(String label, String value) {
+  Widget _buildPreviousBookingCard(Map<String, dynamic> booking) {
+    final serviceDate = _getBookingDateTime(booking);
+    final dateString = DateFormat('dd MMM yy').format(serviceDate);
+    final duration = booking['TimeType'] == 'Custom' ? 'One day' : 'One month';
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.0),
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ListTile(
+        leading: CircleAvatar(
+          radius: 22,
+          backgroundColor: AppColors.secondaryPastelPurple,
+          backgroundImage: NetworkImage(
+            'https://placehold.co/80x80/${ColorHex(AppColors.secondaryPastelPurple).toHex().substring(3)}/${ColorHex(AppColors.primaryPurple).toHex().substring(3)}?text=${booking['name'][0]}',
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              booking['name']!,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppColors.neutralBlack,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(5, (starIndex) {
+                return Icon(
+                  Icons.star_rate_rounded,
+                  color: starIndex < (booking['rating'] as double)
+                      ? AppColors.emotionYellow
+                      : AppColors.neutralMediumGray,
+                  size: 12,
+                );
+              }),
+            ),
+            Text(
+              booking['service']!,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: AppColors.neutralDarkGray,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+        trailing: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              dateString,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: AppColors.neutralDarkGray,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+            Text(
+              duration,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                color: AppColors.neutralDarkGray,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRowAligned(
+    String label,
+    String value, {
+    bool isMultiLine = false,
+  }) {
+    Widget valueWidget;
+
+    if (isMultiLine) {
+      List<String> items;
+      if (label == 'Service' && value.startsWith('All-rounder')) {
+        items = value
+            .replaceAll('All-rounder (', '')
+            .replaceAll(')', '')
+            .split(', ');
+      } else {
+        items = value.split(', ').where((s) => s.isNotEmpty).toList();
+      }
+
+      valueWidget = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: items
+            .map(
+              (item) => Text(
+                item.trim(),
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.neutralWhite,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+            )
+            .toList(),
+      );
+    } else {
+      valueWidget = Text(
+        value,
+        style: GoogleFonts.poppins(
+          fontSize: 12,
+          color: AppColors.neutralWhite,
+          fontWeight: FontWeight.normal,
+        ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -959,18 +1310,7 @@ class _BookingScreenState extends State<BookingScreen>
               fontWeight: FontWeight.normal,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.neutralWhite,
-                fontWeight: FontWeight.normal,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
+          Expanded(child: valueWidget),
         ],
       ),
     );
@@ -1004,7 +1344,6 @@ class _BookingScreenState extends State<BookingScreen>
   }
 }
 
-// Helper class for hex color conversion
 extension ColorHex on Color {
   String toHex({bool leadingHashSign = true}) =>
       '${leadingHashSign ? '#' : ''}'
@@ -1014,7 +1353,6 @@ extension ColorHex on Color {
       '${blue.toRadixString(16).padLeft(2, '0')}';
 }
 
-// --- Reschedule Dialog Widget ---
 class _RescheduleDialog extends StatefulWidget {
   const _RescheduleDialog();
 
@@ -1074,7 +1412,7 @@ class __RescheduleDialogState extends State<_RescheduleDialog> {
           _buildDateTimePicker(
             label: selectedDate == null
                 ? 'Select Date'
-                : "${selectedDate!.toLocal()}".split(' ')[0],
+                : DateFormat('dd/MM/yyyy').format(selectedDate!),
             icon: Icons.calendar_today,
             hasError: dateError,
             onTap: () async {

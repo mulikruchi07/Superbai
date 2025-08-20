@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
 import 'package:superbai/request_success_screen.dart'; // Import the new request success screen
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ConfirmationScreen extends StatefulWidget {
   // All the data that needs to be passed for confirmation
@@ -76,6 +79,187 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
   void dispose() {
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _createBooking() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // 1. Create DIM_SERVICES document
+    String serviceName = widget.serviceTitle;
+    if (widget.serviceTitle == 'All-rounder') {
+      serviceName =
+          'All-rounder (${widget.currentSelectedAllRounderTypes.join(', ')})';
+    }
+    final serviceDoc = await FirebaseFirestore.instance
+        .collection('DIM_SERVICES')
+        .add({'ServiceName': serviceName});
+    final serviceId = serviceDoc.id;
+
+    // 2. Create service-specific details document(s)
+    if (widget.serviceTitle == 'All-rounder' &&
+        widget.allRounderSubServiceData != null) {
+      for (var entry in widget.allRounderSubServiceData!.entries) {
+        final subServiceTitle = entry.key;
+        final subServiceData = entry.value;
+        await _createServiceDetailDocument(
+          subServiceTitle,
+          serviceId,
+          subServiceData,
+        );
+      }
+    } else {
+      // For single services
+      await _createServiceDetailDocument(widget.serviceTitle, serviceId, {
+        'currentSelectedAreaOption': widget.currentSelectedAreaOption,
+        'currentSelectedAdditionalServices':
+            widget.currentSelectedAdditionalServices,
+        'currentSelectedMealType': widget.currentSelectedMealType,
+        'currentSelectedMeals': widget.currentSelectedMeals,
+        'currentSelectedCookingStyles': widget.currentSelectedCookingStyles,
+        'currentSelectedPeopleCount': widget.currentSelectedPeopleCount,
+        'currentHasWashingMachine': widget.currentHasWashingMachine,
+        'currentSelectedLaundryAdditional':
+            widget.currentSelectedLaundryAdditional,
+        'currentSelectedTypeOfCare': widget.currentSelectedTypeOfCare,
+        'currentSelectedHoursOfCare': widget.currentSelectedHoursOfCare,
+        'currentSelectedSpecialNeeds': widget.currentSelectedSpecialNeeds,
+        'currentSelectedChildAges': widget.currentSelectedChildAges,
+        'currentNumChildren': widget.currentNumChildren,
+        'currentSelectedActivities': widget.currentSelectedActivities,
+      });
+    }
+
+    // 3. Create DIM_TIME_SLOTS document
+    final timeSlotDoc = await FirebaseFirestore.instance
+        .collection('DIM_TIME_SLOTS')
+        .add({
+          'NumberOfShifts': widget.currentNumShifts,
+          'TimeSlots': widget.currentSelectedShiftTimes.join(', '),
+          'SelectedDays': widget.currentServiceType == 'Custom'
+              ? widget.currentSelectedDays.toList()
+              : [],
+        });
+    final timeSlotId = timeSlotDoc.id;
+
+    // 4. Determine PaymentDate and BookingDate
+    DateTime paymentDate;
+    DateTime bookingDate;
+    if (widget.currentServiceType == 'Custom' &&
+        widget.currentSelectedDays.isNotEmpty) {
+      try {
+        bookingDate = DateFormat(
+          'd/M/yyyy',
+        ).parse(widget.currentSelectedDays.first);
+      } catch (e) {
+        bookingDate = DateTime.now(); // Fallback
+      }
+      paymentDate = bookingDate;
+    } else {
+      bookingDate = DateTime.now();
+      final now = DateTime.now();
+      paymentDate = DateTime(
+        now.year,
+        now.month + 1,
+        0,
+      ); // End of current month
+    }
+
+    // 5. Create DIM_SALARY document
+    final salaryDoc = await FirebaseFirestore.instance
+        .collection('DIM_SALARY')
+        .add({
+          'Amount': widget.currentBudget,
+          'PaymentDate': Timestamp.fromDate(paymentDate),
+        });
+    final salaryId = salaryDoc.id;
+
+    // 6. Create FACT_BOOKINGS document
+    await FirebaseFirestore.instance.collection('FACT_BOOKINGS').add({
+      'UserID': user.uid,
+      'MaidID': null, // Empty for now
+      'ServiceID': serviceId,
+      'TimeSlotID': timeSlotId,
+      'SalaryID': salaryId,
+      'BookingDate': Timestamp.fromDate(
+        bookingDate,
+      ), // FIX: Use actual start date
+      'TimeType': widget.currentServiceType,
+      'Status': 'Up next', // Initial status
+      'BookingType': 'Daily', // Default to Daily
+    });
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const RequestSuccessScreen()),
+    );
+  }
+
+  Future<void> _createServiceDetailDocument(
+    String serviceTitle,
+    String serviceId,
+    Map<String, dynamic> data,
+  ) async {
+    switch (serviceTitle) {
+      case 'Cleaning':
+        await FirebaseFirestore.instance
+            .collection('DIM_CLEANING_DETAILS')
+            .add({
+              'ServiceID': serviceId,
+              'AreaSize': data['currentSelectedAreaOption'],
+              'AdditionalServices':
+                  (data['currentSelectedAdditionalServices'] as Set<String>)
+                      .join(', '),
+            });
+        break;
+      case 'Cooking':
+        await FirebaseFirestore.instance.collection('DIM_COOKING_DETAILS').add({
+          'ServiceID': serviceId,
+          'MealType': data['currentSelectedMealType'],
+          'Meals': (data['currentSelectedMeals'] as Set<String>).join(', '),
+          'CookingStyles': (data['currentSelectedCookingStyles'] as Set<String>)
+              .join(', '),
+          'PeopleCount': data['currentSelectedPeopleCount'],
+        });
+        break;
+      case 'Laundry':
+        await FirebaseFirestore.instance.collection('DIM_LAUNDRY_DETAILS').add({
+          'ServiceID': serviceId,
+          'PeopleCount': data['currentSelectedPeopleCount'],
+          'HasWashingMachine': data['currentHasWashingMachine'],
+          'AdditionalServices':
+              (data['currentSelectedLaundryAdditional'] as Set<String>).join(
+                ', ',
+              ),
+        });
+        break;
+      case 'Elder-care':
+        await FirebaseFirestore.instance
+            .collection('DIM_ELDERCARE_DETAILS')
+            .add({
+              'ServiceID': serviceId,
+              'TypeOfCare': (data['currentSelectedTypeOfCare'] as Set<String>)
+                  .join(', '),
+              'HoursOfCare': data['currentSelectedHoursOfCare'],
+              'SpecialNeeds':
+                  (data['currentSelectedSpecialNeeds'] as Set<String>).join(
+                    ', ',
+                  ),
+            });
+        break;
+      case 'Babysitter':
+        await FirebaseFirestore.instance
+            .collection('DIM_BABYSITTER_DETAILS')
+            .add({
+              'ServiceID': serviceId,
+              'NumChildren': data['currentNumChildren'],
+              'ChildAges': (data['currentSelectedChildAges'] as Set<String>)
+                  .join(', '),
+              'Activities': (data['currentSelectedActivities'] as Set<String>)
+                  .join(', '),
+            });
+        break;
+    }
   }
 
   @override
@@ -394,14 +578,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const RequestSuccessScreen(),
-                    ),
-                  );
-                },
+                onPressed: _createBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   padding: const EdgeInsets.symmetric(vertical: 15),

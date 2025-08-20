@@ -527,7 +527,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -1299,11 +1298,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String heading,
     StateSetter modalSetState,
   ) {
-    TextEditingController controller = TextEditingController();
     return SizedBox(
       width: 120,
       child: TextField(
-        controller: controller,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: GoogleFonts.poppins(
@@ -1334,7 +1331,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         style: GoogleFonts.poppins(fontSize: 13, color: AppColors.neutralBlack),
-        onChanged: (value) {},
       ),
     );
   }
@@ -1382,15 +1378,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // String _formatTime(TimeOfDay? time) {
-  //   if (time == null) {
-  //     return 'Select Time';
-  //   }
-  //   final hour = time.hour.toString().padLeft(2, '0');
-  //   final minute = time.minute.toString().padLeft(2, '0');
-  //   return '$hour:$minute';
-  // }
-
   String _formatDate(DateTime? date) {
     if (date == null) {
       return 'Select Date';
@@ -1431,32 +1418,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
   }
-
-  // Future<void> _selectTime(
-  //   BuildContext context,
-  //   StateSetter modalSetState,
-  //   bool isFromTime,
-  // ) async {
-  //   final TimeOfDay? picked = await showTimePicker(
-  //     context: context,
-  //     initialTime: TimeOfDay.now(),
-  //     builder: (BuildContext context, Widget? child) {
-  //       return MediaQuery(
-  //         data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-  //         child: child!,
-  //       );
-  //     },
-  //   );
-  //   if (picked != null) {
-  //     modalSetState(() {
-  //       if (isFromTime) {
-  //         _selectedCustomFromTime = picked;
-  //       } else {
-  //         _selectedCustomToTime = picked;
-  //       }
-  //     });
-  //   }
-  // }
 
   Widget _buildServiceTypeOption(
     String text,
