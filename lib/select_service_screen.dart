@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
-import 'package:superbai/confirmation_screen.dart'; // Import the new confirmation screen
+import 'package:superbai/theme.dart';
+import 'package:superbai/confirmation_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SelectServiceScreen extends StatefulWidget {
   const SelectServiceScreen({super.key});
@@ -11,7 +13,6 @@ class SelectServiceScreen extends StatefulWidget {
 }
 
 class _SelectServiceScreenState extends State<SelectServiceScreen> {
-  // Define a list of service items with their titles and image paths
   final List<Map<String, String>> _services = [
     {'title': 'Cleaning', 'image': 'assets/dashboard_images/cleaning_icon.png'},
     {'title': 'Cooking', 'image': 'assets/dashboard_images/cooking_icon.jpg'},
@@ -30,29 +31,26 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     },
   ];
 
-  // Map to store selected states for each service's options
   String? _currentSelectedAreaOption;
   Set<String> _currentSelectedAdditionalServices = {};
   String? _currentSelectedMealType;
   Set<String> _currentSelectedMeals = {};
   Set<String> _currentSelectedCookingStyles = {};
-  int _currentSelectedPeopleCount = 1; // For Laundry/Babysitter initial
+  int _currentSelectedPeopleCount = 1;
   bool? _currentHasWashingMachine;
   Set<String> _currentSelectedLaundryAdditional = {};
   Set<String> _currentSelectedTypeOfCare = {};
   String? _currentSelectedHoursOfCare;
   Set<String> _currentSelectedSpecialNeeds = {};
   Set<String> _currentSelectedChildAges = {};
-  int _currentNumChildren = 1; // Default for babysitter
+  int _currentNumChildren = 1;
   Set<String> _currentSelectedActivities = {};
   Set<String> _currentSelectedAllRounderTypes = {};
 
-  // States for the second modal (Time/Service Type)
-  double _currentBudget = 0; // Will be calculated dynamically
-  int _currentNumShifts = 0; // Will be updated based on time slot selection
-  String? _currentServiceType; // Daily or Custom
+  double _currentBudget = 0;
+  int _currentNumShifts = 0;
+  String? _currentServiceType;
 
-  // For Daily and Custom service types
   Set<String> _selectedTimeSlots = {};
   final List<String> _timeSlotsOptions = [
     '9:00 AM - 12:00 PM',
@@ -60,34 +58,19 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     '5:00 PM - 8:00 PM',
   ];
 
-  // For Custom service type
   DateTime? _selectedCustomDate;
-
-  // Store the selected service title to pass to the confirmation screen
   String _selectedServiceTitle = '';
-
-  // Keep track of the index of the current all-rounder sub-service being configured
   int _currentAllRounderServiceIndex = 0;
   List<String> _allRounderSelectedSubServices = [];
-
-  // New: Store all selected sub-service data for All-rounder
   Map<String, Map<String, dynamic>> _allRounderSubServiceData = {};
 
-  // Define the filters for each service
   final Map<String, List<Map<String, dynamic>>> _serviceFilters = {
     'Cleaning': [
       {
         'heading': 'Select the area you need cleaning',
         'type': 'single_select',
-        'options': [
-          '1RK',
-          '1BHK',
-          '2BHK',
-          '3BHK',
-          '4BHK',
-          '5BHK and more',
-        ], // Updated options
-        'has_input': false, // Removed input box
+        'options': ['1RK', '1BHK', '2BHK', '3BHK', '4BHK', '5BHK and more'],
+        'has_input': false,
       },
       {
         'heading': 'Additional services',
@@ -122,8 +105,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
         'has_input': false,
       },
       {
-        'heading':
-            'Select the no. of meals', // Clarified heading for image context
+        'heading': 'Select the no. of meals',
         'type': 'single_select',
         'options': ['1', '2', '3', '4', '5', '6'],
         'has_input': true,
@@ -140,7 +122,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
       },
       {
         'heading': 'Washing machine',
-        'type': 'single_select_boolean', // Custom type for Yes/No
+        'type': 'single_select_boolean',
         'options': ['Yes', 'No'],
         'has_input': false,
       },
@@ -186,8 +168,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     'Babysitter': [
       {
         'heading': 'No of Children',
-        'type': 'number_stepper', // Custom type for stepper input
-        'options': [], // No static options for stepper
+        'type': 'number_stepper',
+        'options': [],
         'has_input': false,
       },
       {
@@ -499,15 +481,16 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                 _currentSelectedAllRounderTypes.toList();
 
                             if (_allRounderSelectedSubServices.isEmpty) {
+                              Navigator.pop(context);
                               _showBudgetShiftModal(context);
                               return;
                             } else {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _currentAllRounderServiceIndex = 0;
-                                _showServiceDetailsSheet(
-                                  context,
-                                  _allRounderSelectedSubServices[_currentAllRounderServiceIndex],
-                                );
+                                setState(() {
+                                  _currentAllRounderServiceIndex = 0;
+                                });
+                                Navigator.pop(context);
+                                _showServiceDetailsSheet(context, serviceTitle);
                               });
                               return;
                             }
@@ -520,13 +503,12 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                               _currentAllRounderServiceIndex++;
                             });
                             WidgetsBinding.instance.addPostFrameCallback((_) {
-                              _showServiceDetailsSheet(
-                                context,
-                                _allRounderSelectedSubServices[_currentAllRounderServiceIndex],
-                              );
+                              Navigator.pop(context);
+                              _showServiceDetailsSheet(context, serviceTitle);
                             });
                             return;
                           }
+                          Navigator.pop(context);
                           _showBudgetShiftModal(context);
                         },
                         style: ElevatedButton.styleFrom(
@@ -639,7 +621,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                       heading == 'Activities') {
                     isSelected = _currentSelectedActivities.contains(option);
                   }
-                } else if (serviceTitle == 'All-rounder') {
+                } else if (_selectedServiceTitle == 'All-rounder') {
                   if (type == 'multi_select') {
                     isSelected = _currentSelectedAllRounderTypes.contains(
                       option,
@@ -732,7 +714,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                           _currentSelectedActivities.add(option);
                         }
                       }
-                    } else if (serviceTitle == 'All-rounder') {
+                    } else if (_selectedServiceTitle == 'All-rounder') {
                       if (type == 'multi_select') {
                         if (_currentSelectedAllRounderTypes.contains(option)) {
                           _currentSelectedAllRounderTypes.remove(option);

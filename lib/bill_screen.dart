@@ -42,95 +42,101 @@ class _BillScreenState extends State<BillScreen> {
       return;
     }
 
-    final bookingSnapshot = await FirebaseFirestore.instance
-        .collection('FACT_BOOKINGS')
-        .where('UserID', isEqualTo: user.uid)
-        .get();
+    try {
+      final bookingSnapshot = await FirebaseFirestore.instance
+          .collection('FACT_BOOKINGS')
+          .where('UserID', isEqualTo: user.uid)
+          .get();
 
-    if (bookingSnapshot.docs.isEmpty) {
+      if (bookingSnapshot.docs.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      List<Map<String, dynamic>> fetchedBills = [];
+      for (var bookingDoc in bookingSnapshot.docs) {
+        final bookingData = bookingDoc.data();
+
+        // **FIX**: Add checks for null IDs and status to prevent crashes.
+        if (bookingData['Status'] == 'Cancelled' ||
+            bookingData['Status'] == 'Backup Requested' ||
+            bookingData['ServiceID'] == null ||
+            bookingData['SalaryID'] == null ||
+            bookingData['TimeSlotID'] == null ||
+            bookingData['BookingDate'] == null) {
+          continue; // Skip invalid or irrelevant bookings
+        }
+
+        final serviceDoc = await FirebaseFirestore.instance
+            .collection('DIM_SERVICES')
+            .doc(bookingData['ServiceID'])
+            .get();
+        final salaryDoc = await FirebaseFirestore.instance
+            .collection('DIM_SALARY')
+            .doc(bookingData['SalaryID'])
+            .get();
+        final timeSlotDoc = await FirebaseFirestore.instance
+            .collection('DIM_TIME_SLOTS')
+            .doc(bookingData['TimeSlotID'])
+            .get();
+
+        // **FIX**: Safely handle potentially null Timestamp.
+        final paymentTimestamp = salaryDoc.data()?['PaymentDate'] as Timestamp?;
+        final paymentDate = paymentTimestamp?.toDate() ?? DateTime.now();
+
+        final bookingTimestamp = bookingData['BookingDate'] as Timestamp;
+
+        final serviceEndTime = _getServiceEndTime(
+          bookingTimestamp.toDate(),
+          timeSlotDoc.data(),
+        );
+        final dueDate = serviceEndTime.subtract(const Duration(hours: 1));
+
+        fetchedBills.add({
+          'amount': salaryDoc.data()?['Amount'] ?? 0.0,
+          'serviceName': serviceDoc.data()?['ServiceName'] ?? 'N/A',
+          'maidName': 'Rani Obey', // Placeholder
+          'maidId': '3545', // Placeholder
+          'billMonth': DateFormat('MMM yyyy').format(paymentDate),
+          'dueDate': dueDate,
+          'dueDateString': _getDueDateString(dueDate),
+        });
+      }
+
+      fetchedBills.sort((a, b) {
+        final dueDateA = a['dueDate'] as DateTime;
+        final dueDateB = b['dueDate'] as DateTime;
+        final now = DateTime.now();
+
+        final isAOverdue = dueDateA.isBefore(now);
+        final isBOverdue = dueDateB.isBefore(now);
+
+        if (isAOverdue && !isBOverdue) {
+          return -1;
+        } else if (!isAOverdue && isBOverdue) {
+          return 1;
+        } else {
+          return dueDateA.compareTo(dueDateB);
+        }
+      });
+
+      if (mounted) {
+        setState(() {
+          _bills = fetchedBills;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching bills: $e");
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
       }
-      return;
-    }
-
-    List<Map<String, dynamic>> fetchedBills = [];
-    for (var bookingDoc in bookingSnapshot.docs) {
-      final bookingData = bookingDoc.data();
-
-      if (bookingData['Status'] == 'Cancelled' ||
-          bookingData['Status'] == 'Backup Requested') {
-        continue;
-      }
-
-      final serviceDoc = await FirebaseFirestore.instance
-          .collection('DIM_SERVICES')
-          .doc(bookingData['ServiceID'])
-          .get();
-      final salaryDoc = await FirebaseFirestore.instance
-          .collection('DIM_SALARY')
-          .doc(bookingData['SalaryID'])
-          .get();
-      final timeSlotDoc = await FirebaseFirestore.instance
-          .collection('DIM_TIME_SLOTS')
-          .doc(bookingData['TimeSlotID'])
-          .get();
-
-      final paymentDate = (salaryDoc.data()?['PaymentDate'] as Timestamp)
-          .toDate();
-      final serviceEndTime = _getServiceEndTime(
-        (bookingData['BookingDate'] as Timestamp).toDate(),
-        timeSlotDoc.data(),
-      );
-      final dueDate = serviceEndTime.subtract(const Duration(hours: 1));
-
-      fetchedBills.add({
-        'amount': salaryDoc.data()?['Amount'] ?? 0.0,
-        'serviceName': serviceDoc.data()?['ServiceName'] ?? 'N/A',
-        'maidName': 'Rani Obey', // Placeholder
-        'maidId': '3545', // Placeholder
-        'billMonth': DateFormat('MMM yyyy').format(paymentDate),
-        'dueDate': dueDate, // Store the actual due date for sorting
-        'dueDateString': _getDueDateString(dueDate),
-      });
-    }
-
-    // --- SORTING LOGIC ---
-    // This custom sort function arranges bills based on their due date.
-    // 1. It checks if a bill is overdue. Overdue bills are given priority and
-    //    placed at the top of the list.
-    // 2. If both bills being compared are overdue, they are sorted by how
-    //    long they have been overdue (most overdue first).
-    // 3. If neither bill is overdue, they are sorted by their due date in
-    //    ascending order (nearest due date first).
-    fetchedBills.sort((a, b) {
-      final dueDateA = a['dueDate'] as DateTime;
-      final dueDateB = b['dueDate'] as DateTime;
-      final now = DateTime.now();
-
-      final isAOverdue = dueDateA.isBefore(now);
-      final isBOverdue = dueDateB.isBefore(now);
-
-      if (isAOverdue && !isBOverdue) {
-        return -1; // A is overdue, B is not. A comes first.
-      } else if (!isAOverdue && isBOverdue) {
-        return 1; // B is overdue, A is not. B comes first.
-      } else {
-        // Both are overdue or both are not. Sort by due date.
-        // For overdue, this sorts the most overdue first.
-        // For upcoming, this sorts the nearest due date first.
-        return dueDateA.compareTo(dueDateB);
-      }
-    });
-    // --- END OF SORTING LOGIC ---
-
-    if (mounted) {
-      setState(() {
-        _bills = fetchedBills;
-        _isLoading = false;
-      });
     }
   }
 
@@ -187,7 +193,7 @@ class _BillScreenState extends State<BillScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,
-        automaticallyImplyLeading: false, // Removes the back arrow
+        automaticallyImplyLeading: false,
         title: Text(
           'Bills',
           style: GoogleFonts.poppins(
@@ -196,7 +202,7 @@ class _BillScreenState extends State<BillScreen> {
             fontWeight: FontWeight.normal,
           ),
         ),
-        centerTitle: false, // Aligns title to the left
+        centerTitle: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -284,7 +290,6 @@ class _BillScreenState extends State<BillScreen> {
   }
 }
 
-// New widget to display a single bill card
 class _BillCard extends StatelessWidget {
   final Map<String, dynamic> billData;
 

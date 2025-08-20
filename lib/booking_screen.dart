@@ -51,12 +51,7 @@ class _BookingScreenState extends State<BookingScreen>
     super.dispose();
   }
 
-  // --- PERFORMANCE OPTIMIZATION ---
-  // This function has been refactored to fetch booking details more efficiently.
-  // Instead of fetching details for each booking individually (N+1 problem),
-  // it now fetches all bookings, then gets all related service, timeslot, and
-  // salary documents in three batch requests. This significantly reduces the
-  // number of database calls and improves loading speed.
+  // Fetches and processes bookings efficiently.
   void _fetchBookings() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -64,6 +59,9 @@ class _BookingScreenState extends State<BookingScreen>
       return;
     }
 
+    // NOTE: This query requires a composite index in Firestore.
+    // Please create an index on 'UserID' (ascending) and 'Status' (ascending)
+    // for the 'FACT_BOOKINGS' collection.
     final query = FirebaseFirestore.instance
         .collection('FACT_BOOKINGS')
         .where('UserID', isEqualTo: user.uid)
@@ -84,17 +82,20 @@ class _BookingScreenState extends State<BookingScreen>
           return data;
         }).toList();
 
-        // Collect all unique IDs to fetch in batches
+        // **FIX**: Filter out null IDs to prevent crashes during batch fetching.
         final serviceIds = bookingsData
-            .map((b) => b['ServiceID'] as String)
+            .map((b) => b['ServiceID'] as String?)
+            .where((id) => id != null)
             .toSet()
             .toList();
         final timeSlotIds = bookingsData
-            .map((b) => b['TimeSlotID'] as String)
+            .map((b) => b['TimeSlotID'] as String?)
+            .where((id) => id != null)
             .toSet()
             .toList();
         final salaryIds = bookingsData
-            .map((b) => b['SalaryID'] as String)
+            .map((b) => b['SalaryID'] as String?)
+            .where((id) => id != null)
             .toSet()
             .toList();
 
@@ -142,6 +143,13 @@ class _BookingScreenState extends State<BookingScreen>
         // Combine booking data with the fetched related data
         List<Map<String, dynamic>> allBookings = [];
         for (var bookingData in bookingsData) {
+          // **FIX**: Skip incomplete booking records to prevent errors.
+          if (bookingData['ServiceID'] == null ||
+              bookingData['TimeSlotID'] == null ||
+              bookingData['SalaryID'] == null) {
+            continue;
+          }
+
           final service = serviceMap[bookingData['ServiceID']];
           final timeSlot = timeSlotMap[bookingData['TimeSlotID']];
           final salary = salaryMap[bookingData['SalaryID']];
@@ -152,10 +160,9 @@ class _BookingScreenState extends State<BookingScreen>
             'timing': timeSlot?['TimeSlots'] ?? 'N/A',
             'salary': 'Rs. ${salary?['Amount']?.toInt() ?? 0}',
             'timeSlotData': timeSlot,
-            'name': 'Maid Name', // This seems to be hardcoded, leaving as is
-            'contact':
-                '9876543210', // This seems to be hardcoded, leaving as is
-            'rating': 4.0, // This seems to be hardcoded, leaving as is
+            'name': 'Maid Name', // Placeholder
+            'contact': '9876543210', // Placeholder
+            'rating': 4.0, // Placeholder
             'maidId': bookingData['MaidID'] ?? 'N/A',
           });
         }
@@ -177,11 +184,14 @@ class _BookingScreenState extends State<BookingScreen>
     bool getEndTime = false,
   }) {
     final timeSlotData = booking['timeSlotData'] as Map<String, dynamic>?;
-    if (timeSlotData == null) return DateTime(1970);
+    final bookingTimestamp = booking['BookingDate'] as Timestamp?;
+
+    // **FIX**: Handle null booking date gracefully.
+    if (timeSlotData == null || bookingTimestamp == null) return DateTime(1970);
 
     final timeSlots = (timeSlotData['TimeSlots'] as String? ?? '').split(', ');
     if (timeSlots.isEmpty || timeSlots.first.isEmpty) {
-      return (booking['BookingDate'] as Timestamp).toDate();
+      return bookingTimestamp.toDate();
     }
 
     DateTime datePart;
@@ -191,10 +201,10 @@ class _BookingScreenState extends State<BookingScreen>
           'd/M/yyyy',
         ).parse((timeSlotData['SelectedDays'] as List).first);
       } catch (e) {
-        datePart = (booking['BookingDate'] as Timestamp).toDate();
+        datePart = bookingTimestamp.toDate();
       }
     } else {
-      datePart = (booking['BookingDate'] as Timestamp).toDate();
+      datePart = bookingTimestamp.toDate();
     }
 
     try {
@@ -451,12 +461,6 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  // --- PERMISSION FIX ---
-  // The original code tried to UPDATE the existing DIM_TIME_SLOTS document,
-  // which caused a permission error.
-  // This updated function now CREATES a NEW DIM_TIME_SLOTS document and updates
-  // the FACT_BOOKINGS document to point to the new one. This aligns with the
-  // permissions and matches the logic of the working "Backup Maid" feature.
   void _showRescheduleDialog(String bookingId, String timeSlotId) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -473,25 +477,22 @@ class _BookingScreenState extends State<BookingScreen>
         final newDate = result['date'] as DateTime;
         final newDateString = DateFormat('d/M/yyyy').format(newDate);
 
-        // Create a new time slot document instead of updating the old one
         final newTimeSlotDoc = await FirebaseFirestore.instance
             .collection('DIM_TIME_SLOTS')
             .add({
               'TimeSlots': newTimeSlots,
               'SelectedDays': [newDateString],
-              'NumberOfShifts': 1, // Assuming 1 for a rescheduled slot
+              'NumberOfShifts': 1,
             });
 
-        // Update the booking to point to the new time slot ID
         await FirebaseFirestore.instance
             .collection('FACT_BOOKINGS')
             .doc(bookingId)
             .update({
               'BookingDate': Timestamp.fromDate(newDate),
-              'TimeSlotID': newTimeSlotDoc.id, // Point to the new document
+              'TimeSlotID': newTimeSlotDoc.id,
             });
 
-        // Manually update local state for immediate UI feedback
         if (mounted) {
           setState(() {
             int index = _activeBookings.indexWhere((b) => b['id'] == bookingId);
@@ -517,7 +518,6 @@ class _BookingScreenState extends State<BookingScreen>
         }
       } catch (e) {
         debugPrint("Error rescheduling booking: $e");
-        // Optionally show an error dialog to the user
       } finally {
         if (mounted) {
           _hideLoading();
@@ -1002,7 +1002,7 @@ class _BookingScreenState extends State<BookingScreen>
                           radius: 30,
                           backgroundColor: AppColors.neutralWhite,
                           backgroundImage: NetworkImage(
-                            'https://placehold.co/100x100/FFFFFF/5D4EFF?text=${booking['name'][0]}',
+                            'https://placehold.co/100x100/FFFFFF/5D4EFF?text=${(booking['name'] as String).isNotEmpty ? (booking['name'] as String)[0] : ''}',
                           ),
                         ),
                         const SizedBox(height: 5),
@@ -1177,7 +1177,7 @@ class _BookingScreenState extends State<BookingScreen>
           radius: 22,
           backgroundColor: AppColors.secondaryPastelPurple,
           backgroundImage: NetworkImage(
-            'https://placehold.co/80x80/${ColorHex(AppColors.secondaryPastelPurple).toHex().substring(3)}/${ColorHex(AppColors.primaryPurple).toHex().substring(3)}?text=${booking['name'][0]}',
+            'https://placehold.co/80x80/${ColorHex(AppColors.secondaryPastelPurple).toHex().substring(3)}/${ColorHex(AppColors.primaryPurple).toHex().substring(3)}?text=${(booking['name'] as String).isNotEmpty ? (booking['name'] as String)[0] : ''}',
           ),
         ),
         title: Column(
