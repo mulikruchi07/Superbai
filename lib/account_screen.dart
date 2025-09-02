@@ -4,13 +4,16 @@ import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/bill_screen.dart';
-import 'package:superbai/complaint_screen.dart'; // Assuming this exists for "File a Complaint"
-import 'package:superbai/location_screen.dart'; // Import LocationScreen
-import 'package:superbai/customer_care_screen.dart'; // Import CustomerCareScreen
+import 'package:superbai/complaint_screen.dart';
+import 'package:superbai/location_screen.dart';
+import 'package:superbai/customer_care_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'CouponScreen.dart';
 import 'EditProfileScreen.dart';
 import 'ReferMaidScreen.dart';
-import 'TermsAndConditionsScreen.dart'; // Import the new EditProfileScreen
+import 'TermsAndConditionsScreen.dart';
+import 'mobile_number_screen.dart'; // Import for logout navigation
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -20,7 +23,55 @@ class AccountScreen extends StatefulWidget {
 }
 
 class _AccountScreenState extends State<AccountScreen> {
-  int _selectedNavbarIndex = 3; // Default to 'Account' tab in navbar (index 3)
+  int _selectedNavbarIndex = 3; // Default to 'Account' tab
+  String _userName = 'Loading...'; // State variable to hold the user's name
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  /// Fetches the logged-in user's full name from Firestore.
+  Future<void> _fetchUserData() async {
+    final User? user = _auth.currentUser;
+    if (user != null) {
+      try {
+        final DocumentSnapshot userDoc = await _firestore
+            .collection('DIM_USERS')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists && mounted) {
+          setState(() {
+            // Set the user name from the 'FullName' field in Firestore
+            _userName = userDoc.get('FullName') ?? 'No Name';
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _userName = 'Error';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error fetching user data: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  /// Handles the user logout process.
+  Future<void> _logout() async {
+    await _auth.signOut();
+    // Navigate back to the login screen and clear the navigation stack
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const MobileNumberScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +82,6 @@ class _AccountScreenState extends State<AccountScreen> {
           // Top Purple Section with Profile and Points
           Container(
             width: double.infinity,
-            // Adjust padding to remove top header space, accounting for safe area
             padding: EdgeInsets.fromLTRB(
               20,
               MediaQuery.of(context).padding.top + 20,
@@ -40,7 +90,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             decoration: BoxDecoration(
               color: AppColors.primaryPurple,
-              // Removed bottom curved edges
               borderRadius: BorderRadius.zero,
             ),
             child: Column(
@@ -49,22 +98,23 @@ class _AccountScreenState extends State<AccountScreen> {
                 Row(
                   children: [
                     CircleAvatar(
-                      radius: 35, // Slightly smaller radius
+                      radius: 35,
                       backgroundColor: AppColors.neutralWhite,
-                      backgroundImage: NetworkImage(
+                      backgroundImage: const NetworkImage(
                         'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRwh1EKt_AqF35M7LTejJXysIIKQ31zWt3fzlX5-F5DoUDrhOxfeySO5E_lgNeIuTrWJKM&usqp=CAU',
-                      ), // Placeholder for profile image
+                      ),
                     ),
                     const SizedBox(width: 15),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Display the fetched user name here
                         Text(
-                          'John Snow',
+                          _userName,
                           style: GoogleFonts.poppins(
-                            fontSize: 20, // Slightly larger for name
+                            fontSize: 20,
                             color: AppColors.neutralWhite,
-                            fontWeight: FontWeight.normal, // Not bold
+                            fontWeight: FontWeight.normal,
                           ),
                         ),
                         const SizedBox(height: 5),
@@ -72,14 +122,10 @@ class _AccountScreenState extends State<AccountScreen> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 6,
-                          ), // Adjusted padding
+                          ),
                           decoration: BoxDecoration(
-                            color:
-                                AppColors.neutralWhite, // Changed to white fill
-                            borderRadius: BorderRadius.circular(
-                              20,
-                            ), // Fully curved
-                            // Removed border: Border.all(color: AppColors.primaryPink, width: 1.0),
+                            color: AppColors.neutralWhite,
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -87,18 +133,17 @@ class _AccountScreenState extends State<AccountScreen> {
                               Text(
                                 'My Points ',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14, // Increased font size
-                                  color: AppColors.primaryPink, // Pink color
-                                  fontWeight: FontWeight.normal, // Not bold
+                                  fontSize: 14,
+                                  color: AppColors.primaryPink,
+                                  fontWeight: FontWeight.normal,
                                 ),
                               ),
                               Text(
                                 '350',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 14, // Increased font size
-                                  color: AppColors.primaryPink, // Pink color
-                                  fontWeight:
-                                      FontWeight.bold, // Bold for points number
+                                  fontSize: 14,
+                                  color: AppColors.primaryPink,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(width: 5),
@@ -106,7 +151,7 @@ class _AccountScreenState extends State<AccountScreen> {
                                 Icons.monetization_on,
                                 size: 18,
                                 color: AppColors.emotionYellow,
-                              ), // Gold coin icon
+                              ),
                             ],
                           ),
                         ),
@@ -114,28 +159,31 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     const Spacer(),
                     GestureDetector(
-                      // Added GestureDetector to the arrow icon
-                      onTap: () {
-                        Navigator.push(
+                      onTap: () async {
+                        // Navigate to EditProfileScreen and wait for a result.
+                        // If the profile was updated, refresh the user data.
+                        final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) =>
-                                EditProfileScreen(), // Removed 'const' here
+                            builder: (context) => const EditProfileScreen(),
                           ),
                         );
+                        if (result == true && mounted) {
+                          _fetchUserData(); // Refresh user data if name was changed
+                        }
                       },
                       child: Icon(
                         Icons.arrow_forward_ios,
                         color: AppColors.neutralWhite,
                         size: 20,
-                      ), // Arrow icon
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20), // Spacing after purple header
+          const SizedBox(height: 20),
 
           Expanded(
             child: SingleChildScrollView(
@@ -158,7 +206,6 @@ class _AccountScreenState extends State<AccountScreen> {
                     icon: Icons.redeem_outlined,
                     text: 'Coupons',
                     onTap: () {
-                      // Navigate to the new CouponScreen
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => CouponScreen()),
@@ -169,7 +216,6 @@ class _AccountScreenState extends State<AccountScreen> {
                     icon: Icons.people_outline,
                     text: 'Refer a Maid/Friend',
                     onTap: () {
-                      // Navigate to the new ReferMaidScreen
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -194,7 +240,6 @@ class _AccountScreenState extends State<AccountScreen> {
                     icon: Icons.info_outline,
                     text: 'Terms & Conditions',
                     onTap: () {
-                      // Navigate to the new TermsAndConditionsScreen
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -221,25 +266,19 @@ class _AccountScreenState extends State<AccountScreen> {
                     text: 'Settings',
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Settings clicked!')),
+                        const SnackBar(content: Text('Settings clicked!')),
                       );
                     },
                   ),
                   _buildAccountOption(
                     icon: Icons.logout,
                     text: 'Logout',
-                    textColor:
-                        AppColors.emotionOrangeRed, // Red color for Logout text
-                    iconColor:
-                        AppColors.emotionOrangeRed, // Red color for Logout icon
-                    showArrow: false, // No arrow for Logout
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Logout clicked!')),
-                      );
-                    },
+                    textColor: AppColors.emotionOrangeRed,
+                    iconColor: AppColors.emotionOrangeRed,
+                    showArrow: false,
+                    onTap: _logout, // Call the logout function
                   ),
-                  const SizedBox(height: 20), // Spacing at the bottom
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -295,6 +334,8 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ],
         onTap: (index) {
+          if (index == _selectedNavbarIndex)
+            return; // Avoid redundant navigation
           setState(() {
             _selectedNavbarIndex = index;
           });
@@ -314,11 +355,6 @@ class _AccountScreenState extends State<AccountScreen> {
               context,
               MaterialPageRoute(builder: (context) => const BillScreen()),
             );
-          } else if (index == 3) {
-            // Already on AccountScreen, do nothing or show a snackbar
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Already on Account page')));
           }
         },
       ),
@@ -330,42 +366,32 @@ class _AccountScreenState extends State<AccountScreen> {
     required String text,
     required VoidCallback onTap,
     Color? textColor,
-    Color? iconColor, // Added iconColor parameter
-    bool showArrow = true, // Added showArrow parameter, default to true
+    Color? iconColor,
+    bool showArrow = true,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 15,
-        ), // Increased vertical padding
-        // Removed Border(bottom: ...) to remove lines between elements
+        padding: const EdgeInsets.symmetric(vertical: 15),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 22,
-              color: iconColor ?? AppColors.primaryPurple,
-            ), // Use iconColor or default to purple
-            const SizedBox(width: 15), // Gap between icon and text
+            Icon(icon, size: 22, color: iconColor ?? AppColors.primaryPurple),
+            const SizedBox(width: 15),
             Text(
               text,
               style: GoogleFonts.poppins(
-                fontSize: 14, // Small font size
-                color:
-                    textColor ??
-                    AppColors
-                        .primaryPurple, // Use provided color or default to purple
-                fontWeight: FontWeight.normal, // Not bold
+                fontSize: 14,
+                color: textColor ?? AppColors.primaryPurple,
+                fontWeight: FontWeight.normal,
               ),
             ),
             const Spacer(),
-            if (showArrow) // Conditionally display arrow
+            if (showArrow)
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
                 color: AppColors.primaryPink,
-              ), // Arrow icon color pink
+              ),
           ],
         ),
       ),
