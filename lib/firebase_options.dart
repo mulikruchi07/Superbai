@@ -41,8 +41,8 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC60vR9if21As67FtWnVKKZsWzsYi-0Jfg',
-    appId: '1:350617376160:web:fe6ec3d136d0fd673280c5',
+    apiKey: '"REPLACE_WITH_YOUR_KEY"',
+    appId: '"REPLACE_WITH_YOUR_ID"',
     messagingSenderId: '350617376160',
     projectId: 'superbai-app',
     authDomain: 'superbai-app.firebaseapp.com',
@@ -51,16 +51,16 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCPptgp2kV0MADJOVoYdAxpdQguFl-5euw',
-    appId: '1:350617376160:android:191fc8748630f9f43280c5',
+    apiKey: '"REPLACE_WITH_YOUR_KEY"',
+    appId: '"REPLACE_WITH_YOUR_ID"',
     messagingSenderId: '350617376160',
     projectId: 'superbai-app',
     storageBucket: 'superbai-app.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyClYQbAqcKoCVq-rwSDrbirCFUQA3ev85o',
-    appId: '1:350617376160:ios:0ae51aa0d18431843280c5',
+    apiKey: '"REPLACE_WITH_YOUR_KEY"',
+    appId: '"REPLACE_WITH_YOUR_ID"',
     messagingSenderId: '350617376160',
     projectId: 'superbai-app',
     storageBucket: 'superbai-app.firebasestorage.app',
@@ -68,8 +68,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyClYQbAqcKoCVq-rwSDrbirCFUQA3ev85o',
-    appId: '1:350617376160:ios:0ae51aa0d18431843280c5',
+    apiKey: '"REPLACE_WITH_YOUR_KEY"',
+    appId: '"REPLACE_WITH_YOUR_ID"',
     messagingSenderId: '350617376160',
     projectId: 'superbai-app',
     storageBucket: 'superbai-app.firebasestorage.app',
@@ -77,8 +77,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC60vR9if21As67FtWnVKKZsWzsYi-0Jfg',
-    appId: '1:350617376160:web:24ad72e07b6301bc3280c5',
+    apiKey: '"REPLACE_WITH_YOUR_KEY"',
+    appId: '"REPLACE_WITH_YOUR_ID"',
     messagingSenderId: '350617376160',
     projectId: 'superbai-app',
     authDomain: 'superbai-app.firebaseapp.com',
