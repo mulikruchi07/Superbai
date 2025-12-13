@@ -2,8 +2,6 @@
 
 SUPERBAI is a Flutter-based mobile application that allows users to book maid services seamlessly. This repository contains the full source code for the app, integrated with Firebase for authentication and backend functionality.
 
----
-
 ## 🔧 Features
 
 - User Registration & Login
@@ -11,11 +9,7 @@ SUPERBAI is a Flutter-based mobile application that allows users to book maid se
 - Real-time Updates
 - Firebase Integration (Authentication, Firestore)
 - Modern UI built with Flutter
-
----
-
----
-
+- 
 ## 🛠️ Getting Started
 
 ### 1. Clone the Repository
@@ -30,9 +24,6 @@ cd superbai
 ```bash
 flutter pub get
 ```
-
----
-
 ## 🔐 Firebase Setup (Using CLI)
 
 Make sure you have connected Firebase to your Flutter project using CLI. Follow the below steps if you're setting up Firebase on a new machine or sharing this project with others:
@@ -78,8 +69,6 @@ import 'firebase_options.dart';
 ```bash
 flutter run
 ```
-
----
 
 ## 📦 Build APK
 
