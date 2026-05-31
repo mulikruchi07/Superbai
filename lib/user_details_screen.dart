@@ -28,12 +28,13 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   // List of buildings for the dropdown menu
   final List<String> _buildings = [
-    'Dreams Building',
-    'Kukreja Building',
-    'Mahavir Universe Building',
-    'Phoenix Building',
-    'Mahindra Splendour Building',
-    'Lodha Imperial Building',
+    // 'Dreams Building',
+    // 'Kukreja Building',
+    // 'Mahavir Universe Building',
+    // 'Phoenix Building',
+    // 'Mahindra Splendour Building',
+    // 'Lodha Imperial Building',
+    'Evershine Madhuvan CHS',
   ];
 
   @override
