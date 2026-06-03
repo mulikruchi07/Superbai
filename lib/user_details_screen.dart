@@ -35,6 +35,8 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     // 'Mahindra Splendour Building',
     // 'Lodha Imperial Building',
     'Evershine Madhuvan CHS',
+    'Sigma Building',
+    'Bhoomi Towers'
   ];
 
   @override

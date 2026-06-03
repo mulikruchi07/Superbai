@@ -59,7 +59,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
   String? _currentServiceType;
 
   Set<String> _selectedTimeSlots = {};
-  String? _preferredTimeInput;
+  TimeOfDay? _preferredTime;
   
 
   DateTime? _selectedCustomDate;
@@ -1125,6 +1125,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                   _currentNumShifts = 0;
                                   _selectedTimeSlots.clear();
                                   _selectedCustomDate = null;
+                                  _preferredTime = null;
                                   serviceTypeError = false;
                                 }),
                               ),
@@ -1142,37 +1143,95 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.neutralWhite,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: AppColors.neutralMediumGray,
-                                          width: 1.5,
+                                    GestureDetector(
+                                      onTap: () async {
+                                        TimeOfDay? picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: _preferredTime ?? TimeOfDay.now(),
+                                          builder: (BuildContext context, Widget? child) {
+                                            return Theme(
+                                              data: ThemeData.light().copyWith(
+                                                colorScheme: ColorScheme.light(
+                                                  primary: AppColors.primaryPurple,
+                                                  onPrimary: AppColors.neutralWhite,
+                                                  onSurface: AppColors.neutralBlack,
+                                                  surface: AppColors.neutralWhite,
+                                                  secondary: AppColors.primaryPurple,
+                                                ),
+                                                textButtonTheme: TextButtonThemeData(
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: AppColors.primaryPurple,
+                                                  ),
+                                                ),
+                                                timePickerTheme: TimePickerThemeData(
+                                                  backgroundColor: AppColors.neutralWhite,
+                                                  hourMinuteShape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  hourMinuteColor: MaterialStateColor.resolveWith(
+                                                    (states) => states.contains(MaterialState.selected)
+                                                        ? AppColors.primaryPurple
+                                                        : AppColors.neutralWhite,
+                                                  ),
+                                                  hourMinuteTextColor: MaterialStateColor.resolveWith(
+                                                    (states) => states.contains(MaterialState.selected)
+                                                        ? AppColors.neutralWhite
+                                                        : AppColors.neutralBlack,
+                                                  ),
+                                                  dialHandColor: AppColors.primaryPurple,
+                                                  dialBackgroundColor: AppColors.neutralWhite,
+                                                  dialTextColor: MaterialStateColor.resolveWith(
+                                                    (states) => AppColors.neutralBlack,
+                                                  ),
+                                                  entryModeIconColor: AppColors.primaryPurple,
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked != null) {
+                                          modalSetState(() {
+                                            _preferredTime = picked;
+                                            timeSlotError = false;
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 15,
+                                          vertical: 12,
                                         ),
-                                      ),
-                                      child: TextField(
-                                        decoration: InputDecoration(
-                                          hintText: 'e.g., 2:30 PM',
-                                          hintStyle: GoogleFonts.poppins(
-                                            fontSize: 13,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.neutralWhite,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
                                             color: AppColors.neutralMediumGray,
+                                            width: 1.5,
                                           ),
-                                          border: InputBorder.none,
-                                          isDense: true,
                                         ),
-                                        onChanged: (val) => modalSetState(() {
-                                          _preferredTimeInput = val;
-                                          timeSlotError = false;
-                                        }),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          color: AppColors.neutralBlack,
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              _preferredTime != null
+                                                  ? _preferredTime!.format(context)
+                                                  : 'Select Time',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: _preferredTime != null
+                                                    ? AppColors.neutralBlack
+                                                    : AppColors.neutralMediumGray,
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.access_time,
+                                              color: AppColors.neutralMediumGray,
+                                              size: 20,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -1186,6 +1245,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                   _currentServiceType = 'Custom';
                                   _currentNumShifts = 0;
                                   _selectedTimeSlots.clear();
+                                  _preferredTime = null;
                                   serviceTypeError = false;
                                 }),
                               ),
@@ -1251,37 +1311,95 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.neutralWhite,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: AppColors.neutralMediumGray,
-                                          width: 1.5,
+                                    GestureDetector(
+                                      onTap: () async {
+                                        TimeOfDay? picked = await showTimePicker(
+                                          context: context,
+                                          initialTime: _preferredTime ?? TimeOfDay.now(),
+                                          builder: (BuildContext context, Widget? child) {
+                                            return Theme(
+                                              data: ThemeData.light().copyWith(
+                                                colorScheme: ColorScheme.light(
+                                                  primary: AppColors.primaryPurple,
+                                                  onPrimary: AppColors.neutralWhite,
+                                                  onSurface: AppColors.neutralBlack,
+                                                  surface: AppColors.neutralWhite,
+                                                  secondary: AppColors.primaryPurple,
+                                                ),
+                                                textButtonTheme: TextButtonThemeData(
+                                                  style: TextButton.styleFrom(
+                                                    foregroundColor: AppColors.primaryPurple,
+                                                  ),
+                                                ),
+                                                timePickerTheme: TimePickerThemeData(
+                                                  backgroundColor: AppColors.neutralWhite,
+                                                  hourMinuteShape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  hourMinuteColor: MaterialStateColor.resolveWith(
+                                                    (states) => states.contains(MaterialState.selected)
+                                                        ? AppColors.primaryPurple
+                                                        : AppColors.neutralWhite,
+                                                  ),
+                                                  hourMinuteTextColor: MaterialStateColor.resolveWith(
+                                                    (states) => states.contains(MaterialState.selected)
+                                                        ? AppColors.neutralWhite
+                                                        : AppColors.neutralBlack,
+                                                  ),
+                                                  dialHandColor: AppColors.primaryPurple,
+                                                  dialBackgroundColor: AppColors.neutralWhite,
+                                                  dialTextColor: MaterialStateColor.resolveWith(
+                                                    (states) => AppColors.neutralBlack,
+                                                  ),
+                                                  entryModeIconColor: AppColors.primaryPurple,
+                                                ),
+                                              ),
+                                              child: child!,
+                                            );
+                                          },
+                                        );
+                                        if (picked != null) {
+                                          modalSetState(() {
+                                            _preferredTime = picked;
+                                            timeSlotError = false;
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 15,
+                                          vertical: 12,
                                         ),
-                                      ),
-                                      child: TextField(
-                                        decoration: InputDecoration(
-                                          hintText: 'e.g., 2:30 PM',
-                                          hintStyle: GoogleFonts.poppins(
-                                            fontSize: 13,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.neutralWhite,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
                                             color: AppColors.neutralMediumGray,
+                                            width: 1.5,
                                           ),
-                                          border: InputBorder.none,
-                                          isDense: true,
                                         ),
-                                        onChanged: (val) => modalSetState(() {
-                                          _preferredTimeInput = val;
-                                          timeSlotError = false;
-                                        }),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          color: AppColors.neutralBlack,
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              _preferredTime != null
+                                                  ? _preferredTime!.format(context)
+                                                  : 'Select Time',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 14,
+                                                color: _preferredTime != null
+                                                    ? AppColors.neutralBlack
+                                                    : AppColors.neutralMediumGray,
+                                                fontWeight: FontWeight.normal,
+                                              ),
+                                            ),
+                                            Icon(
+                                              Icons.access_time,
+                                              color: AppColors.neutralMediumGray,
+                                              size: 20,
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -1290,8 +1408,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         padding: const EdgeInsets.only(top: 8.0),
                                         child: Text(
                                           _selectedCustomDate == null
-                                              ? 'Please select a date and enter preferred time.'
-                                              : 'Please enter your preferred time.',
+                                              ? 'Please select a date and preferred time.'
+                                              : 'Please select your preferred time.',
                                           style: GoogleFonts.poppins(
                                             color: Colors.red,
                                             fontSize: 12,
@@ -1321,10 +1439,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                           onPressed: () {
                             bool isValid = true;
                             modalSetState(() {
-                              // We require a preferred time entered by the user.
+                              // We require a preferred time selected by the user.
                               serviceTypeError = false;
-                              timeSlotError = (_preferredTimeInput == null ||
-                                  _preferredTimeInput!.trim().isEmpty);
+                              timeSlotError = (_preferredTime == null);
                             });
 
                             if (timeSlotError) {
@@ -1336,7 +1453,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                             // Populate the existing slot container so downstream
                             // code (ConfirmationScreen) remains compatible.
                             _selectedTimeSlots = {
-                              _preferredTimeInput!.trim(),
+                              _preferredTime!.format(context),
                             };
                             _currentNumShifts = 1;
 
