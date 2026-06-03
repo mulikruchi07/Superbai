@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
@@ -64,6 +65,7 @@ class ConfirmationScreen extends StatefulWidget {
 
 class _ConfirmationScreenState extends State<ConfirmationScreen> {
   late TextEditingController _addressController;
+  bool _isCreatingBooking = false;
 
   @override
   void initState() {
@@ -82,113 +84,147 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
   }
 
   Future<void> _createBooking() async {
+    if (_isCreatingBooking) return;
+
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    // 1. Create DIM_SERVICES document
-    String serviceName = widget.serviceTitle;
-    if (widget.serviceTitle == 'All-rounder') {
-      serviceName =
-          'All-rounder (${widget.currentSelectedAllRounderTypes.join(', ')})';
+    if (user == null && kDebugMode) {
+      _openSuccessScreen();
+      return;
     }
-    final serviceDoc = await FirebaseFirestore.instance
-        .collection('DIM_SERVICES')
-        .add({'ServiceName': serviceName});
-    final serviceId = serviceDoc.id;
 
-    // 2. Create service-specific details document(s)
-    if (widget.serviceTitle == 'All-rounder' &&
-        widget.allRounderSubServiceData != null) {
-      for (var entry in widget.allRounderSubServiceData!.entries) {
-        final subServiceTitle = entry.key;
-        final subServiceData = entry.value;
-        await _createServiceDetailDocument(
-          subServiceTitle,
-          serviceId,
-          subServiceData,
-        );
+    final userId = user?.uid;
+    if (userId == null) {
+      _showMessage('Please log in again before confirming requirements.');
+      return;
+    }
+
+    setState(() => _isCreatingBooking = true);
+
+    try {
+      // 1. Create DIM_SERVICES document
+      String serviceName = widget.serviceTitle;
+      if (widget.serviceTitle == 'All-rounder') {
+        serviceName =
+            'All-rounder (${widget.currentSelectedAllRounderTypes.join(', ')})';
       }
-    } else {
-      // For single services
-      await _createServiceDetailDocument(widget.serviceTitle, serviceId, {
-        'currentSelectedAreaOption': widget.currentSelectedAreaOption,
-        'currentSelectedAdditionalServices':
-            widget.currentSelectedAdditionalServices,
-        'currentSelectedMealType': widget.currentSelectedMealType,
-        'currentSelectedMeals': widget.currentSelectedMeals,
-        'currentSelectedCookingStyles': widget.currentSelectedCookingStyles,
-        'currentSelectedPeopleCount': widget.currentSelectedPeopleCount,
-        'currentHasWashingMachine': widget.currentHasWashingMachine,
-        'currentSelectedLaundryAdditional':
-            widget.currentSelectedLaundryAdditional,
-        'currentSelectedTypeOfCare': widget.currentSelectedTypeOfCare,
-        'currentSelectedHoursOfCare': widget.currentSelectedHoursOfCare,
-        'currentSelectedSpecialNeeds': widget.currentSelectedSpecialNeeds,
-        'currentSelectedChildAges': widget.currentSelectedChildAges,
-        'currentNumChildren': widget.currentNumChildren,
-        'currentSelectedActivities': widget.currentSelectedActivities,
+      final serviceDoc = await FirebaseFirestore.instance
+          .collection('DIM_SERVICES')
+          .add({'ServiceName': serviceName});
+      final serviceId = serviceDoc.id;
+
+      // 2. Create service-specific details document(s)
+      if (widget.serviceTitle == 'All-rounder' &&
+          widget.allRounderSubServiceData != null) {
+        for (var entry in widget.allRounderSubServiceData!.entries) {
+          final subServiceTitle = entry.key;
+          final subServiceData = entry.value;
+          await _createServiceDetailDocument(
+            subServiceTitle,
+            serviceId,
+            subServiceData,
+          );
+        }
+      } else {
+        // For single services
+        await _createServiceDetailDocument(widget.serviceTitle, serviceId, {
+          'currentSelectedAreaOption': widget.currentSelectedAreaOption,
+          'currentSelectedAdditionalServices':
+              widget.currentSelectedAdditionalServices,
+          'currentSelectedMealType': widget.currentSelectedMealType,
+          'currentSelectedMeals': widget.currentSelectedMeals,
+          'currentSelectedCookingStyles': widget.currentSelectedCookingStyles,
+          'currentSelectedPeopleCount': widget.currentSelectedPeopleCount,
+          'currentHasWashingMachine': widget.currentHasWashingMachine,
+          'currentSelectedLaundryAdditional':
+              widget.currentSelectedLaundryAdditional,
+          'currentSelectedTypeOfCare': widget.currentSelectedTypeOfCare,
+          'currentSelectedHoursOfCare': widget.currentSelectedHoursOfCare,
+          'currentSelectedSpecialNeeds': widget.currentSelectedSpecialNeeds,
+          'currentSelectedChildAges': widget.currentSelectedChildAges,
+          'currentNumChildren': widget.currentNumChildren,
+          'currentSelectedActivities': widget.currentSelectedActivities,
+        });
+      }
+
+      // 3. Create DIM_TIME_SLOTS document
+      final timeSlotDoc = await FirebaseFirestore.instance
+          .collection('DIM_TIME_SLOTS')
+          .add({
+            'NumberOfShifts': widget.currentNumShifts,
+            'TimeSlots': widget.currentSelectedShiftTimes.join(', '),
+            'SelectedDays': widget.currentServiceType == 'Custom'
+                ? widget.currentSelectedDays.toList()
+                : [],
+          });
+      final timeSlotId = timeSlotDoc.id;
+
+      // 4. Determine PaymentDate and BookingDate
+      DateTime paymentDate;
+      DateTime bookingDate;
+      if (widget.currentServiceType == 'Custom' &&
+          widget.currentSelectedDays.isNotEmpty) {
+        try {
+          bookingDate = DateFormat(
+            'd/M/yyyy',
+          ).parse(widget.currentSelectedDays.first);
+        } catch (e) {
+          bookingDate = DateTime.now(); // Fallback
+        }
+        paymentDate = bookingDate;
+      } else {
+        bookingDate = DateTime.now();
+        final now = DateTime.now();
+        paymentDate = DateTime(
+          now.year,
+          now.month + 1,
+          0,
+        ); // End of current month
+      }
+
+      // 5. Create DIM_SALARY document
+      final salaryDoc = await FirebaseFirestore.instance
+          .collection('DIM_SALARY')
+          .add({
+            'Amount': widget.currentBudget,
+            'PaymentDate': Timestamp.fromDate(paymentDate),
+          });
+      final salaryId = salaryDoc.id;
+
+      // 6. Create FACT_BOOKINGS document
+      await FirebaseFirestore.instance.collection('FACT_BOOKINGS').add({
+        'UserID': userId,
+        'MaidID': null, // Empty for now
+        'ServiceID': serviceId,
+        'TimeSlotID': timeSlotId,
+        'SalaryID': salaryId,
+        'BookingDate': Timestamp.fromDate(
+          bookingDate,
+        ), // FIX: Use actual start date
+        'TimeType': widget.currentServiceType,
+        'Status': 'Up next', // Initial status
+        'BookingType': 'Daily', // Default to Daily
       });
-    }
 
-    // 3. Create DIM_TIME_SLOTS document
-    final timeSlotDoc = await FirebaseFirestore.instance
-        .collection('DIM_TIME_SLOTS')
-        .add({
-          'NumberOfShifts': widget.currentNumShifts,
-          'TimeSlots': widget.currentSelectedShiftTimes.join(', '),
-          'SelectedDays': widget.currentServiceType == 'Custom'
-              ? widget.currentSelectedDays.toList()
-              : [],
-        });
-    final timeSlotId = timeSlotDoc.id;
-
-    // 4. Determine PaymentDate and BookingDate
-    DateTime paymentDate;
-    DateTime bookingDate;
-    if (widget.currentServiceType == 'Custom' &&
-        widget.currentSelectedDays.isNotEmpty) {
-      try {
-        bookingDate = DateFormat(
-          'd/M/yyyy',
-        ).parse(widget.currentSelectedDays.first);
-      } catch (e) {
-        bookingDate = DateTime.now(); // Fallback
+      _openSuccessScreen();
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Could not confirm requirements. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _isCreatingBooking = false);
       }
-      paymentDate = bookingDate;
-    } else {
-      bookingDate = DateTime.now();
-      final now = DateTime.now();
-      paymentDate = DateTime(
-        now.year,
-        now.month + 1,
-        0,
-      ); // End of current month
     }
+  }
 
-    // 5. Create DIM_SALARY document
-    final salaryDoc = await FirebaseFirestore.instance
-        .collection('DIM_SALARY')
-        .add({
-          'Amount': widget.currentBudget,
-          'PaymentDate': Timestamp.fromDate(paymentDate),
-        });
-    final salaryId = salaryDoc.id;
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
-    // 6. Create FACT_BOOKINGS document
-    await FirebaseFirestore.instance.collection('FACT_BOOKINGS').add({
-      'UserID': user.uid,
-      'MaidID': null, // Empty for now
-      'ServiceID': serviceId,
-      'TimeSlotID': timeSlotId,
-      'SalaryID': salaryId,
-      'BookingDate': Timestamp.fromDate(
-        bookingDate,
-      ), // FIX: Use actual start date
-      'TimeType': widget.currentServiceType,
-      'Status': 'Up next', // Initial status
-      'BookingType': 'Daily', // Default to Daily
-    });
-
+  void _openSuccessScreen() {
+    if (!mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const RequestSuccessScreen()),
@@ -578,7 +614,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _createBooking,
+                onPressed: _isCreatingBooking ? null : _createBooking,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   padding: const EdgeInsets.symmetric(vertical: 15),
@@ -586,15 +622,24 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                     borderRadius: BorderRadius.circular(25.0),
                   ),
                 ),
-                child: Text(
-                  'CONFIRM REQUIREMENTS',
-                  style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.buttonText.fontSize,
-                    color: AppColors.neutralWhite,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.5,
-                  ),
-                ),
+                child: _isCreatingBooking
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : Text(
+                        'CONFIRM REQUIREMENTS',
+                        style: GoogleFonts.poppins(
+                          fontSize: AppTextStyles.buttonText.fontSize,
+                          color: AppColors.neutralWhite,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
               ),
             ),
           ),

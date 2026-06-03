@@ -4,11 +4,11 @@ import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/bill_screen.dart';
-import 'package:superbai/complaint_screen.dart';
 import 'package:superbai/location_screen.dart';
 import 'package:superbai/customer_care_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'CouponScreen.dart';
 import 'EditProfileScreen.dart';
 import 'ReferMaidScreen.dart';
@@ -27,6 +27,7 @@ class _AccountScreenState extends State<AccountScreen> {
   String _userName = 'Loading...'; // State variable to hold the user's name
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const String _supportWhatsAppNumber = '919876543210';
 
   @override
   void initState() {
@@ -66,11 +67,56 @@ class _AccountScreenState extends State<AccountScreen> {
   /// Handles the user logout process.
   Future<void> _logout() async {
     await _auth.signOut();
+    if (!mounted) return;
     // Navigate back to the login screen and clear the navigation stack
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const MobileNumberScreen()),
       (Route<dynamic> route) => false,
     );
+  }
+
+  Future<void> _openComplaintWhatsAppChat() async {
+    final message = Uri.encodeComponent(
+      'Hi SuperBai, I want to file a complaint.',
+    );
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
+    );
+
+    try {
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (openedApp) return;
+
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -252,14 +298,7 @@ class _AccountScreenState extends State<AccountScreen> {
                   _buildAccountOption(
                     icon: Icons.edit_note_outlined,
                     text: 'File a Complaint',
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ComplaintScreen(),
-                        ),
-                      );
-                    },
+                    onTap: _openComplaintWhatsAppChat,
                   ),
                   _buildAccountOption(
                     icon: Icons.settings_outlined,
@@ -334,8 +373,9 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ],
         onTap: (index) {
-          if (index == _selectedNavbarIndex)
+          if (index == _selectedNavbarIndex) {
             return; // Avoid redundant navigation
+          }
           setState(() {
             _selectedNavbarIndex = index;
           });
