@@ -278,9 +278,9 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
                       PageRouteBuilder(
                         pageBuilder: (context, animation, secondaryAnimation) =>
                             FAQAnswerScreen(
-                              screenTitle: 'Reschedule/Cancel Booking',
-                              contentText:
-                                  'To reschedule or cancel a booking, go to the "Booking" tab in the bottom navigation bar. Select the active booking you wish to change, and you will find options to "Reschedule" or "Cancel" the service.',
+                              screenTitle: 'Flexibility/Cancel Booking',
+                                contentText:
+                                  'To use Flexibility or cancel a booking, go to the "Booking" tab in the bottom navigation bar. Select the active booking you wish to change, and you will find options to "Flexibility" or "Cancel" the service.',
                               showStillNeedHelp:
                                   _showStillNeedHelpSlider, // Pass the function
                             ),

@@ -461,16 +461,16 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  void _showRescheduleDialog(String bookingId, String timeSlotId) async {
+  void _showFlexibilityDialog(String bookingId, String timeSlotId) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return const _RescheduleDialog();
+        return const _FlexibilityDialog();
       },
     );
 
     if (result != null && mounted) {
-      _showLoading('Rescheduling booking...');
+      _showLoading('Flexibility booking...');
       try {
         final newTimeSlots =
             '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}';
@@ -661,18 +661,18 @@ class _BookingScreenState extends State<BookingScreen>
       },
     ).then((confirmed) {
       if (confirmed == true) {
-        _showRescheduleDialogForBackup(originalBooking);
+        _showFlexibilityDialogForBackup(originalBooking);
       }
     });
   }
 
-  void _showRescheduleDialogForBackup(
+  void _showFlexibilityDialogForBackup(
     Map<String, dynamic> originalBooking,
   ) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return const _RescheduleDialog();
+        return const _FlexibilityDialog();
       },
     );
 
@@ -1072,9 +1072,9 @@ class _BookingScreenState extends State<BookingScreen>
                         () => _showCancelDialog(booking['id']),
                       ),
                       _buildOutlineButton(
-                        'Reschedule',
+                        'Flexibility',
                         Icons.calendar_today_outlined,
-                        () => _showRescheduleDialog(
+                        () => _showFlexibilityDialog(
                           booking['id'],
                           booking['TimeSlotID'],
                         ),
@@ -1353,14 +1353,14 @@ extension ColorHex on Color {
       '${blue.toRadixString(16).padLeft(2, '0')}';
 }
 
-class _RescheduleDialog extends StatefulWidget {
-  const _RescheduleDialog();
+class _FlexibilityDialog extends StatefulWidget {
+  const _FlexibilityDialog();
 
   @override
-  __RescheduleDialogState createState() => __RescheduleDialogState();
+  __FlexibilityDialogState createState() => __FlexibilityDialogState();
 }
 
-class __RescheduleDialogState extends State<_RescheduleDialog> {
+class __FlexibilityDialogState extends State<_FlexibilityDialog> {
   DateTime? selectedDate;
   TimeOfDay? fromTime;
   TimeOfDay? toTime;
@@ -1403,7 +1403,7 @@ class __RescheduleDialogState extends State<_RescheduleDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: Text(
-        'Reschedule Booking',
+        'Flexibility Booking',
         style: GoogleFonts.poppins(fontWeight: FontWeight.normal, fontSize: 16),
       ),
       content: Column(
