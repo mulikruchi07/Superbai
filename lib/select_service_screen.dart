@@ -947,6 +947,45 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     );
   }
 
+  ThemeData _buildEnhancedTimePickerTheme() {
+    return ThemeData.light().copyWith(
+      colorScheme: ColorScheme.light(
+        primary: AppColors.primaryPurple,
+        onPrimary: AppColors.neutralWhite,
+        onSurface: AppColors.neutralBlack,
+        surface: AppColors.neutralWhite,
+        secondary: AppColors.primaryPurple,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryPurple,
+        ),
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: AppColors.neutralWhite,
+        hourMinuteShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        hourMinuteColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primaryPurple
+              : AppColors.neutralWhite,
+        ),
+        hourMinuteTextColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.neutralWhite
+              : AppColors.neutralBlack,
+        ),
+        dialHandColor: AppColors.primaryPurple,
+        dialBackgroundColor: AppColors.neutralWhite,
+        dialTextColor: WidgetStateColor.resolveWith(
+          (states) => AppColors.neutralBlack,
+        ),
+        entryModeIconColor: AppColors.primaryPurple,
+      ),
+    );
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return 'Select Date';
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
@@ -1150,42 +1189,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                           initialTime: _preferredTime ?? TimeOfDay.now(),
                                           builder: (BuildContext context, Widget? child) {
                                             return Theme(
-                                              data: ThemeData.light().copyWith(
-                                                colorScheme: ColorScheme.light(
-                                                  primary: AppColors.primaryPurple,
-                                                  onPrimary: AppColors.neutralWhite,
-                                                  onSurface: AppColors.neutralBlack,
-                                                  surface: AppColors.neutralWhite,
-                                                  secondary: AppColors.primaryPurple,
-                                                ),
-                                                textButtonTheme: TextButtonThemeData(
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: AppColors.primaryPurple,
-                                                  ),
-                                                ),
-                                                timePickerTheme: TimePickerThemeData(
-                                                  backgroundColor: AppColors.neutralWhite,
-                                                  hourMinuteShape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  hourMinuteColor: MaterialStateColor.resolveWith(
-                                                    (states) => states.contains(MaterialState.selected)
-                                                        ? AppColors.primaryPurple
-                                                        : AppColors.neutralWhite,
-                                                  ),
-                                                  hourMinuteTextColor: MaterialStateColor.resolveWith(
-                                                    (states) => states.contains(MaterialState.selected)
-                                                        ? AppColors.neutralWhite
-                                                        : AppColors.neutralBlack,
-                                                  ),
-                                                  dialHandColor: AppColors.primaryPurple,
-                                                  dialBackgroundColor: AppColors.neutralWhite,
-                                                  dialTextColor: MaterialStateColor.resolveWith(
-                                                    (states) => AppColors.neutralBlack,
-                                                  ),
-                                                  entryModeIconColor: AppColors.primaryPurple,
-                                                ),
-                                              ),
+                                              data: _buildEnhancedTimePickerTheme(),
                                               child: child!,
                                             );
                                           },
@@ -1318,42 +1322,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                           initialTime: _preferredTime ?? TimeOfDay.now(),
                                           builder: (BuildContext context, Widget? child) {
                                             return Theme(
-                                              data: ThemeData.light().copyWith(
-                                                colorScheme: ColorScheme.light(
-                                                  primary: AppColors.primaryPurple,
-                                                  onPrimary: AppColors.neutralWhite,
-                                                  onSurface: AppColors.neutralBlack,
-                                                  surface: AppColors.neutralWhite,
-                                                  secondary: AppColors.primaryPurple,
-                                                ),
-                                                textButtonTheme: TextButtonThemeData(
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: AppColors.primaryPurple,
-                                                  ),
-                                                ),
-                                                timePickerTheme: TimePickerThemeData(
-                                                  backgroundColor: AppColors.neutralWhite,
-                                                  hourMinuteShape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(12),
-                                                  ),
-                                                  hourMinuteColor: MaterialStateColor.resolveWith(
-                                                    (states) => states.contains(MaterialState.selected)
-                                                        ? AppColors.primaryPurple
-                                                        : AppColors.neutralWhite,
-                                                  ),
-                                                  hourMinuteTextColor: MaterialStateColor.resolveWith(
-                                                    (states) => states.contains(MaterialState.selected)
-                                                        ? AppColors.neutralWhite
-                                                        : AppColors.neutralBlack,
-                                                  ),
-                                                  dialHandColor: AppColors.primaryPurple,
-                                                  dialBackgroundColor: AppColors.neutralWhite,
-                                                  dialTextColor: MaterialStateColor.resolveWith(
-                                                    (states) => AppColors.neutralBlack,
-                                                  ),
-                                                  entryModeIconColor: AppColors.primaryPurple,
-                                                ),
-                                              ),
+                                              data: _buildEnhancedTimePickerTheme(),
                                               child: child!,
                                             );
                                           },
