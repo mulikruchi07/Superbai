@@ -59,6 +59,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
   // These variables are kept to satisfy the arguments needed for TimeSlotScreen, but their values are not updated via UI.
   double _currentBudget = 4000;
   Set<String> _currentSelectedDays = {};
+  TimeOfDay? _preferredTime;
 
   // Store the selected service title to pass to the confirmation screen
   String _selectedServiceTitle = '';
@@ -437,6 +438,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
             }
 
             // UPDATED: Wrap the content in a Padding that respects the bottom safe area
+            bool timeSlotError = false;
             return Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -496,6 +498,84 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                                   currentModalServiceTitle,
                                 );
                               }).toList(),
+                            const SizedBox(height: 20),
+                            Text(
+                              'Preferred Time',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.neutralDarkGray,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            GestureDetector(
+                              onTap: () async {
+                                TimeOfDay? picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: _preferredTime ?? TimeOfDay.now(),
+                                  builder: (BuildContext context, Widget? child) {
+                                    return Theme(
+                                      data: _buildEnhancedTimePickerTheme(),
+                                      child: child!,
+                                    );
+                                  },
+                                );
+                                if (picked != null) {
+                                  modalSetState(() {
+                                    _preferredTime = picked;
+                                    timeSlotError = false;
+                                  });
+                                }
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 15,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.neutralWhite,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.neutralMediumGray,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _preferredTime != null
+                                          ? _preferredTime!.format(context)
+                                          : 'Select Time',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: _preferredTime != null
+                                            ? AppColors.neutralBlack
+                                            : AppColors.neutralMediumGray,
+                                        fontWeight: FontWeight.normal,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.access_time,
+                                      color: AppColors.neutralMediumGray,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (timeSlotError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'Please select a preferred time',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: AppColors.emotionOrangeRed,
+                                  ),
+                                ),
+                              ),
                             const SizedBox(height: 20),
                           ],
                         ),
@@ -879,6 +959,45 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
             child: Icon(Icons.add, size: 20, color: AppColors.primaryPurple),
           ),
         ],
+      ),
+    );
+  }
+
+  ThemeData _buildEnhancedTimePickerTheme() {
+    return ThemeData.light().copyWith(
+      colorScheme: ColorScheme.light(
+        primary: AppColors.primaryPurple,
+        onPrimary: AppColors.neutralWhite,
+        onSurface: AppColors.neutralBlack,
+        surface: AppColors.neutralWhite,
+        secondary: AppColors.primaryPurple,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryPurple,
+        ),
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: AppColors.neutralWhite,
+        hourMinuteShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        hourMinuteColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primaryPurple
+              : AppColors.neutralWhite,
+        ),
+        hourMinuteTextColor: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.neutralWhite
+              : AppColors.neutralBlack,
+        ),
+        dialHandColor: AppColors.primaryPurple,
+        dialBackgroundColor: AppColors.neutralWhite,
+        dialTextColor: WidgetStateColor.resolveWith(
+          (states) => AppColors.neutralBlack,
+        ),
+        entryModeIconColor: AppColors.primaryPurple,
       ),
     );
   }
