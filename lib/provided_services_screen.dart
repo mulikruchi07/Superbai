@@ -38,6 +38,12 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
       'image': 'assets/dashboard_images/all_rounder_icon.png',
     },
   ];
+  final Set<String> _comingSoonServices = {
+    'Laundry',
+    'Elder-care',
+    'Babysitter',
+    'All-rounder',
+  };
 
   // Map to store selected states for each service's options
   String? _currentSelectedAreaOption;
@@ -300,53 +306,85 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
     String imagePath,
     String title,
   ) {
+    final bool isComingSoon = _comingSoonServices.contains(title);
+
     return GestureDetector(
       onTap: () {
+        if (isComingSoon) {
+          _showComingSoonMessage(context, title);
+          return;
+        }
+
         _selectedServiceTitle = title;
         _currentAllRounderServiceIndex = 0;
         _allRounderSelectedSubServices.clear();
         _showServiceDetailsSheet(context, title);
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.neutralWhite,
-          borderRadius: BorderRadius.circular(12.0),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.neutralMediumGray.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.neutralWhite,
+              borderRadius: BorderRadius.circular(12.0),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neutralMediumGray.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              imagePath,
-              height: 100,
-              width: 100,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(
-                  Icons.broken_image,
-                  size: 80,
-                  color: AppColors.neutralMediumGray,
-                );
-              },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  imagePath,
+                  height: 100,
+                  width: 100,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.broken_image,
+                      size: 80,
+                      color: AppColors.neutralMediumGray,
+                    );
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: AppTextStyles.bodyText.fontSize,
+                    color: AppColors.neutralBlack,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (isComingSoon) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Coming Soon',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: AppColors.primaryPurple,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: AppTextStyles.bodyText.fontSize,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -837,6 +875,45 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
         ),
         style: GoogleFonts.poppins(fontSize: 13, color: AppColors.neutralBlack),
       ),
+    );
+  }
+
+  void _showComingSoonMessage(BuildContext context, String serviceTitle) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          title: Text(
+            '$serviceTitle is coming soon',
+            style: GoogleFonts.poppins(
+              fontSize: AppTextStyles.heading5.fontSize,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            'We are working to bring $serviceTitle support to SUPERBAI soon. Thank you for your patience!',
+            style: GoogleFonts.poppins(
+              fontSize: AppTextStyles.bodyText.fontSize,
+              color: AppColors.neutralDarkGray,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: GoogleFonts.poppins(
+                  color: AppColors.primaryPurple,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

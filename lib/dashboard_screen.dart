@@ -403,6 +403,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 30),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Text(
+                'Maid\'s Tracker',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTextStyles.heading4.fontSize,
+                  color: AppColors.neutralBlack,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 15.0,
+              ),
+              child: Text(
+                'This week',
+                style: AppTextStyles.subtext.copyWith(
+                  color: AppColors.neutralDarkGray,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(7, (index) {
+                  final List<String> daysOfWeek = [
+                    'MON',
+                    'TUE',
+                    'WED',
+                    'THR',
+                    'FRI',
+                    'SAT',
+                    'SUN',
+                  ];
+                  final List<Color> statusColors = [
+                    AppColors.emotionGreen,
+                    AppColors.emotionGreen,
+                    AppColors.emotionGreen,
+                    AppColors.emotionOrangeRed,
+                    AppColors.neutralMediumGray,
+                    AppColors.neutralMediumGray,
+                    AppColors.neutralMediumGray,
+                  ];
+                  return Column(
+                    children: [
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: statusColors[index],
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        daysOfWeek[index],
+                        style: GoogleFonts.poppins(
+                          fontSize: AppTextStyles.bodyText.fontSize,
+                          color: AppColors.neutralDarkGray,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ),
             const SizedBox(height: 30),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),

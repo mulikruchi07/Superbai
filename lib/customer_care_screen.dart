@@ -18,22 +18,62 @@ class CustomerCareScreen extends StatefulWidget {
 class _CustomerCareScreenState extends State<CustomerCareScreen> {
   bool _showFloatingButtons =
       false; // State to manage visibility of additional buttons
-
+  static const String _supportWhatsAppNumber = '919876543210';
   // Function to launch WhatsApp
   Future<void> _launchWhatsApp() async {
+    final message = Uri.encodeComponent('Hi SuperBai');
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
+    );
+
+    try {
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (openedApp) return;
+
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    }
+
+    // ScaffoldMessenger.of(
+    //   context,
+    // ).showSnackBar(const SnackBar(content: Text('Opening WhatsApp...')));
+    // final Uri whatsappUri = Uri.parse(
+    //   'whatsapp://send?phone=+919876543210',
+    // ); // Replace with actual number
+    // if (await canLaunchUrl(whatsappUri)) {
+    //   await launchUrl(whatsappUri);
+    // } else {
+    //   ScaffoldMessenger.of(
+    //     context,
+    //   ).showSnackBar(const SnackBar(content: Text('WhatsApp not installed.')));
+    // }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Opening WhatsApp...')));
-    final Uri whatsappUri = Uri.parse(
-      'whatsapp://send?phone=+919876543210',
-    ); // Replace with actual number
-    if (await canLaunchUrl(whatsappUri)) {
-      await launchUrl(whatsappUri);
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('WhatsApp not installed.')));
-    }
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   // Function to launch SMS (Chat)
@@ -279,7 +319,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
                         pageBuilder: (context, animation, secondaryAnimation) =>
                             FAQAnswerScreen(
                               screenTitle: 'Flexibility/Cancel Booking',
-                                contentText:
+                              contentText:
                                   'To use Flexibility or cancel a booking, go to the "Booking" tab in the bottom navigation bar. Select the active booking you wish to change, and you will find options to "Flexibility" or "Cancel" the service.',
                               showStillNeedHelp:
                                   _showStillNeedHelpSlider, // Pass the function

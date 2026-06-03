@@ -25,7 +25,10 @@ class _BookingScreenState extends State<BookingScreen>
   int _selectedNavbarIndex = 1;
   bool _isLoading = true; // Master loading state for initial fetch
   String _loadingMessage = '';
-
+  final List<Map<String, String>> services = [
+    {'name': 'Cleaning', 'image': 'assets/dashboard_images/cleaning_icon.png'},
+    {'name': 'Cooking', 'image': 'assets/dashboard_images/cooking_icon.jpg'},
+  ];
   // --- State Management for Bookings ---
   List<Map<String, dynamic>> _activeBookings = [];
   List<Map<String, dynamic>> _instantBookings = [];
@@ -943,9 +946,110 @@ class _BookingScreenState extends State<BookingScreen>
   }
 
   Widget _buildInstantBookingTab() {
-    return _isLoading && _instantBookings.isEmpty
-        ? const Center(child: CircularProgressIndicator())
-        : _buildBookingList(_instantBookings);
+    if (_isLoading && _instantBookings.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_instantBookings.isNotEmpty) {
+      return _buildBookingList(_instantBookings);
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Services',
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: AppColors.neutralBlack,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 0.9,
+              ),
+              itemCount: services.length,
+              itemBuilder: (context, index) {
+                final service = services[index];
+
+                return GestureDetector(
+                  onTap: () {
+                    // setState(() {
+                    //   _selectedServiceTitle = service['name']!;
+
+                    //   _currentAllRounderServiceIndex = 0;
+                    //   _allRounderSelectedSubServices.clear();
+                    //   _allRounderSubServiceData.clear();
+
+                    //   _currentServiceType = 'Daily';
+                    //   _currentNumShifts = 0;
+                    //   _selectedTimeSlots.clear();
+                    //   _selectedCustomDate = null;
+                    // });
+
+                    // _showServiceDetailsSheet(
+                    //   context,
+                    //   service['name']!,
+                    // );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLightPurple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.neutralMediumGray.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          service['image']!,
+                          height: 50,
+                          width: 50,
+                          fit: BoxFit.contain,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          service['name']!,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppColors.neutralBlack,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildBookingList(List<Map<String, dynamic>> bookings) {
