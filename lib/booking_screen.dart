@@ -11,6 +11,7 @@ import 'dart:ui'; // Required for BackdropFilter
 import 'package:superbai/maid_linking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -21,6 +22,8 @@ class BookingScreen extends StatefulWidget {
 
 class _BookingScreenState extends State<BookingScreen>
     with SingleTickerProviderStateMixin {
+  static const String _supportWhatsAppNumber = '919819293826';
+
   late TabController _tabController;
   int _selectedNavbarIndex = 1;
   bool _isLoading = true; // Master loading state for initial fetch
@@ -464,69 +467,48 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  void _showFlexibilityDialog(String bookingId, String timeSlotId) async {
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return const _FlexibilityDialog();
-      },
+  Future<void> _launchFlexibilityWhatsApp() async {
+    final message = Uri.encodeComponent(
+      'Hi SuperBai, I need help with Flexibility.',
+    );
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
     );
 
-    if (result != null && mounted) {
-      _showLoading('Flexibility booking...');
-      try {
-        final newTimeSlots =
-            '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}';
-        final newDate = result['date'] as DateTime;
-        final newDateString = DateFormat('d/M/yyyy').format(newDate);
+    try {
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (openedApp) return;
 
-        final newTimeSlotDoc = await FirebaseFirestore.instance
-            .collection('DIM_TIME_SLOTS')
-            .add({
-              'TimeSlots': newTimeSlots,
-              'SelectedDays': [newDateString],
-              'NumberOfShifts': 1,
-            });
-
-        await FirebaseFirestore.instance
-            .collection('FACT_BOOKINGS')
-            .doc(bookingId)
-            .update({
-              'BookingDate': Timestamp.fromDate(newDate),
-              'TimeSlotID': newTimeSlotDoc.id,
-            });
-
-        if (mounted) {
-          setState(() {
-            int index = _activeBookings.indexWhere((b) => b['id'] == bookingId);
-            if (index != -1) {
-              final updatedBooking = Map<String, dynamic>.from(
-                _activeBookings[index],
-              );
-
-              updatedBooking['timing'] = newTimeSlots;
-              updatedBooking['BookingDate'] = Timestamp.fromDate(newDate);
-              updatedBooking['TimeSlotID'] = newTimeSlotDoc.id;
-
-              final updatedTimeSlotData = Map<String, dynamic>.from(
-                updatedBooking['timeSlotData'] ?? {},
-              );
-              updatedTimeSlotData['TimeSlots'] = newTimeSlots;
-              updatedTimeSlotData['SelectedDays'] = [newDateString];
-              updatedBooking['timeSlotData'] = updatedTimeSlotData;
-
-              _activeBookings[index] = updatedBooking;
-            }
-          });
-        }
-      } catch (e) {
-        debugPrint("Error rescheduling booking: $e");
-      } finally {
-        if (mounted) {
-          _hideLoading();
-        }
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
       }
     }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showReplaceDialog() {
@@ -1178,10 +1160,7 @@ class _BookingScreenState extends State<BookingScreen>
                       _buildOutlineButton(
                         'Flexibility',
                         Icons.calendar_today_outlined,
-                        () => _showFlexibilityDialog(
-                          booking['id'],
-                          booking['TimeSlotID'],
-                        ),
+                        _launchFlexibilityWhatsApp,
                       ),
                       _buildOutlineButton(
                         'Replace',

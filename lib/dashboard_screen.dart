@@ -11,6 +11,7 @@ import 'package:superbai/bill_screen.dart';
 import 'package:superbai/account_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -20,6 +21,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  static const String _supportWhatsAppNumber = '919819293826';
+
   String _currentLocation = 'Fetching location...';
   int _selectedNavbarIndex = 0;
 
@@ -417,22 +420,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Row(
+              child: Column(
                 children: [
-                  Expanded(
-                    child: _buildReferralButton(
-                      'Refer a Maid',
-                      Icons.person_add,
-                      () {},
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildReferralButton(
+                          'Refer a Maid',
+                          Icons.person_add,
+                          () {},
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: _buildReferralButton(
+                          'Refer a Friend',
+                          Icons.group_add,
+                          () {},
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: _buildReferralButton(
-                      'Refer a Friend',
-                      Icons.group_add,
-                      () {},
-                    ),
+                  const SizedBox(height: 15),
+                  _buildReferralButton(
+                    'Flexibility',
+                    Icons.tune,
+                    _launchFlexibilityWhatsApp,
                   ),
                 ],
               ),
@@ -565,6 +578,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _launchFlexibilityWhatsApp() async {
+    final message = Uri.encodeComponent(
+      'Hi SuperBai, I need help with Flexibility.',
+    );
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
+    );
+
+    try {
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (openedApp) return;
+
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildReferralButton(String text, IconData icon, VoidCallback onTap) {

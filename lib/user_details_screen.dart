@@ -17,11 +17,11 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   // Controllers for text input fields
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _flatNoController = TextEditingController();
-  final TextEditingController _societyNameController = TextEditingController();
 
   // State variables for selected values
   String? _selectedGender;
   String? _selectedBuilding;
+  String? _selectedWing;
 
   // MODIFICATION: State variable to track gender validation error
   bool _showGenderError = false;
@@ -39,12 +39,13 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     'Bhoomi Towers'
   ];
 
+  final List<String> _wings = ['A', 'B', 'C', 'D'];
+
   @override
   void dispose() {
     // Dispose controllers when the widget is removed from the widget tree
     _fullNameController.dispose();
     _flatNoController.dispose();
-    _societyNameController.dispose();
     super.dispose();
   }
 
@@ -279,28 +280,6 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Society Name Input
-              Text(
-                'Society Name*',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralBlack,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _societyNameController,
-                decoration: _buildInputDecoration('Enter Society Name'),
-                style: GoogleFonts.poppins(color: AppColors.neutralBlack),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your society name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
               // Building Dropdown
               Text(
                 'Building*',
@@ -342,6 +321,49 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                 }).toList(),
                 validator: (value) =>
                     value == null ? 'Please select a building' : null,
+              ),
+              const SizedBox(height: 20),
+
+              Text(
+                'Wing*',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTextStyles.bodyText.fontSize,
+                  color: AppColors.neutralBlack,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                decoration: _buildInputDecoration('Select Wing'),
+                value: _selectedWing,
+                hint: Text(
+                  'Select Wing',
+                  style: GoogleFonts.poppins(
+                    color: AppColors.neutralMediumGray,
+                    fontSize: 15,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+                isExpanded: true,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedWing = newValue;
+                  });
+                },
+                items: _wings.map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: GoogleFonts.poppins(
+                        color: AppColors.neutralBlack,
+                        fontSize: 15,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                validator: (value) =>
+                    value == null ? 'Please select a wing' : null,
               ),
               const SizedBox(height: 20),
 
