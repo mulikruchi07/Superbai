@@ -1,7 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:superbai/repositories/user_repository.dart';
+import 'package:superbai/dashboard_screen.dart';
+import 'package:superbai/services/auth_flow_service.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/toggle_screen.dart'; // To navigate to the next screen
 
 class UserDetailsScreen extends StatefulWidget {
   const UserDetailsScreen({super.key});
@@ -11,45 +14,73 @@ class UserDetailsScreen extends StatefulWidget {
 }
 
 class _UserDetailsScreenState extends State<UserDetailsScreen> {
-  // A global key that uniquely identifies the Form widget and allows validation.
   final _formKey = GlobalKey<FormState>();
+  final _fullNameController = TextEditingController();
+  final _flatNoController = TextEditingController();
+  final UserRepository _userRepository = UserRepository();
 
-  // Controllers for text input fields
-  final TextEditingController _fullNameController = TextEditingController();
-  final TextEditingController _flatNoController = TextEditingController();
-
-  // State variables for selected values
   String? _selectedGender;
   String? _selectedBuilding;
   String? _selectedWing;
-
-  // MODIFICATION: State variable to track gender validation error
   bool _showGenderError = false;
+  bool _isLoading = true;
+  bool _isSaving = false;
 
-  // List of buildings for the dropdown menu
   final List<String> _buildings = [
-    // 'Dreams Building',
-    // 'Kukreja Building',
-    // 'Mahavir Universe Building',
-    // 'Phoenix Building',
-    // 'Mahindra Splendour Building',
-    // 'Lodha Imperial Building',
     'Evershine Madhuvan CHS',
     'Sigma Building',
-    'Bhoomi Towers'
+    'Bhoomi Towers',
   ];
 
   final List<String> _wings = ['A', 'B', 'C', 'D'];
 
   @override
+  void initState() {
+    super.initState();
+    _loadExistingProfile();
+  }
+
+  Future<void> _loadExistingProfile() async {
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final profile = await _userRepository.getProfileForAuthUser(authUser);
+      if (profile != null && profile.shouldSkipProfileSetup) {
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+        return;
+      }
+      if (profile != null && mounted) {
+        _fullNameController.text = profile.name;
+        _flatNoController.text = profile.pincode;
+        final wing = profile.wingFromBuilding;
+        final buildingName = profile.buildingNameOnly;
+        if (_buildings.contains(buildingName)) {
+          _selectedBuilding = buildingName;
+        }
+        if (wing != null && _wings.contains(wing)) {
+          _selectedWing = wing;
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   void dispose() {
-    // Dispose controllers when the widget is removed from the widget tree
     _fullNameController.dispose();
     _flatNoController.dispose();
     super.dispose();
   }
 
-  // Helper function for consistent input field styling
   InputDecoration _buildInputDecoration(String hintText) {
     return InputDecoration(
       hintText: hintText,
@@ -59,10 +90,9 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       ),
       filled: true,
       fillColor: AppColors.neutralWhite,
-      // Using FormField's error style for validation messages
       errorStyle: GoogleFonts.poppins(color: Colors.redAccent),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0), // Slightly curved border
+        borderRadius: BorderRadius.circular(8.0),
         borderSide: BorderSide(color: AppColors.neutralMediumGray, width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
@@ -85,29 +115,51 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     );
   }
 
-  // MODIFICATION: Updated form submission logic
-  void _submitForm() {
-    // First, validate the form fields using the form key
-    final bool isFormValid = _formKey.currentState?.validate() ?? false;
+  Future<void> _submitForm() async {
+    final isFormValid = _formKey.currentState?.validate() ?? false;
 
-    // Update state to show/hide the gender error message
     setState(() {
       _showGenderError = _selectedGender == null;
     });
 
-    // If all fields are valid (including gender), navigate to the next screen
-    if (isFormValid && _selectedGender != null) {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (context) => const ToggleScreen()));
+    if (!isFormValid || _selectedGender == null) return;
+
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in again.')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      await _userRepository.saveProfile(
+        authUser: authUser,
+        name: _fullNameController.text,
+        buildingName: _selectedBuilding!,
+        wing: _selectedWing!,
+        flatNumber: _flatNoController.text,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => postProfileSetupScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save profile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  // MODIFICATION: Helper function to handle gender selection and clear error
   void _onGenderSelected(String? value) {
     setState(() {
       _selectedGender = value;
-      // When a gender is selected, hide the error message
       if (value != null) {
         _showGenderError = false;
       }
@@ -131,291 +183,277 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Form(
-          key: _formKey, // Assigning the key to the Form
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Quickly fill these details correctly for the best experience',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralDarkGray,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Full Name Input
-              Text(
-                'Full Name*',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralBlack,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _fullNameController,
-                decoration: _buildInputDecoration('Enter your name'),
-                style: GoogleFonts.poppins(color: AppColors.neutralBlack),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your full name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // MODIFICATION: Gender Selection section updated to show inline error
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Gender*',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTextStyles.bodyText.fontSize,
-                      color: AppColors.neutralBlack,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quickly fill these details correctly for the best experience',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.bodyText.fontSize,
+                        color: AppColors.neutralDarkGray,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.normal,
+                      ),
                     ),
-                  ),
-                  // Conditionally display the error message
-                  if (_showGenderError)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: Text(
-                        'Please select a gender',
+                    const SizedBox(height: 20),
+                    Text(
+                      'Full Name*',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.bodyText.fontSize,
+                        color: AppColors.neutralBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _fullNameController,
+                      decoration: _buildInputDecoration('Enter your name'),
+                      style: GoogleFonts.poppins(color: AppColors.neutralBlack),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your full name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Gender*',
+                          style: GoogleFonts.poppins(
+                            fontSize: AppTextStyles.bodyText.fontSize,
+                            color: AppColors.neutralBlack,
+                          ),
+                        ),
+                        if (_showGenderError)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: Text(
+                              'Please select a gender',
+                              style: GoogleFonts.poppins(
+                                color: Colors.redAccent,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Radio<String>(
+                                value: 'Male',
+                                groupValue: _selectedGender,
+                                onChanged: _onGenderSelected,
+                                activeColor: AppColors.primaryPurple,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              GestureDetector(
+                                onTap: () => _onGenderSelected('Male'),
+                                child: Text(
+                                  'Male',
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.neutralBlack,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Radio<String>(
+                                value: 'Female',
+                                groupValue: _selectedGender,
+                                onChanged: _onGenderSelected,
+                                activeColor: AppColors.primaryPurple,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              GestureDetector(
+                                onTap: () => _onGenderSelected('Female'),
+                                child: Text(
+                                  'Female',
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.neutralBlack,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Radio<String>(
+                                value: 'Other',
+                                groupValue: _selectedGender,
+                                onChanged: _onGenderSelected,
+                                activeColor: AppColors.primaryPurple,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              GestureDetector(
+                                onTap: () => _onGenderSelected('Other'),
+                                child: Text(
+                                  'Other',
+                                  style: GoogleFonts.poppins(
+                                    color: AppColors.neutralBlack,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Building*',
+                      style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.bodyText.fontSize,
+                        color: AppColors.neutralBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      decoration: _buildInputDecoration('Select a Building'),
+                      value: _selectedBuilding,
+                      hint: Text(
+                        'Select a Building',
                         style: GoogleFonts.poppins(
-                          color: Colors.redAccent,
-                          fontSize: 12,
+                          color: AppColors.neutralMediumGray,
+                          fontSize: 15,
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
-                    ),
-                ],
-              ),
-              Row(
-                children: [
-                  // To make the radio buttons and text appear together and be responsive
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Radio<String>(
-                          value: 'Male',
-                          groupValue: _selectedGender,
-                          onChanged: _onGenderSelected, // Use helper function
-                          activeColor: AppColors.primaryPurple,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        // Using a GestureDetector to allow text click to also select the radio
-                        GestureDetector(
-                          onTap: () =>
-                              _onGenderSelected('Male'), // Use helper function
+                      isExpanded: true,
+                      onChanged: (String? newValue) {
+                        setState(() => _selectedBuilding = newValue);
+                      },
+                      items: _buildings.map<DropdownMenuItem<String>>((value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
                           child: Text(
-                            'Male',
+                            value,
                             style: GoogleFonts.poppins(
                               color: AppColors.neutralBlack,
+                              fontSize: 15,
                             ),
                           ),
-                        ),
-                      ],
+                        );
+                      }).toList(),
+                      validator: (value) =>
+                          value == null ? 'Please select a building' : null,
                     ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Radio<String>(
-                          value: 'Female',
-                          groupValue: _selectedGender,
-                          onChanged: _onGenderSelected, // Use helper function
-                          activeColor: AppColors.primaryPurple,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        GestureDetector(
-                          onTap: () => _onGenderSelected(
-                            'Female',
-                          ), // Use helper function
-                          child: Text(
-                            'Female',
-                            style: GoogleFonts.poppins(
-                              color: AppColors.neutralBlack,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Radio<String>(
-                          value: 'Other',
-                          groupValue: _selectedGender,
-                          onChanged: _onGenderSelected, // Use helper function
-                          activeColor: AppColors.primaryPurple,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        GestureDetector(
-                          onTap: () =>
-                              _onGenderSelected('Other'), // Use helper function
-                          child: Text(
-                            'Other',
-                            style: GoogleFonts.poppins(
-                              color: AppColors.neutralBlack,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Building Dropdown
-              Text(
-                'Building*',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralBlack,
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                decoration: _buildInputDecoration('Select a Building'),
-                value: _selectedBuilding,
-                hint: Text(
-                  'Select a Building',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.neutralMediumGray,
-                    fontSize: 15,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                isExpanded: true,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedBuilding = newValue;
-                  });
-                },
-                items: _buildings.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
+                    const SizedBox(height: 20),
+                    Text(
+                      'Wing*',
                       style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.bodyText.fontSize,
                         color: AppColors.neutralBlack,
-                        fontSize: 15,
-                        fontWeight: FontWeight.normal,
                       ),
                     ),
-                  );
-                }).toList(),
-                validator: (value) =>
-                    value == null ? 'Please select a building' : null,
-              ),
-              const SizedBox(height: 20),
-
-              Text(
-                'Wing*',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralBlack,
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                decoration: _buildInputDecoration('Select Wing'),
-                value: _selectedWing,
-                hint: Text(
-                  'Select Wing',
-                  style: GoogleFonts.poppins(
-                    color: AppColors.neutralMediumGray,
-                    fontSize: 15,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-                isExpanded: true,
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedWing = newValue;
-                  });
-                },
-                items: _wings.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(
-                      value,
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      decoration: _buildInputDecoration('Select Wing'),
+                      value: _selectedWing,
+                      hint: Text(
+                        'Select Wing',
+                        style: GoogleFonts.poppins(
+                          color: AppColors.neutralMediumGray,
+                          fontSize: 15,
+                        ),
+                      ),
+                      isExpanded: true,
+                      onChanged: (String? newValue) {
+                        setState(() => _selectedWing = newValue);
+                      },
+                      items: _wings.map<DropdownMenuItem<String>>((value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(
+                            value,
+                            style: GoogleFonts.poppins(
+                              color: AppColors.neutralBlack,
+                              fontSize: 15,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      validator: (value) =>
+                          value == null ? 'Please select a wing' : null,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Flat No*',
                       style: GoogleFonts.poppins(
+                        fontSize: AppTextStyles.bodyText.fontSize,
                         color: AppColors.neutralBlack,
-                        fontSize: 15,
-                        fontWeight: FontWeight.normal,
                       ),
                     ),
-                  );
-                }).toList(),
-                validator: (value) =>
-                    value == null ? 'Please select a wing' : null,
-              ),
-              const SizedBox(height: 20),
-
-              // Flat No. Input
-              Text(
-                'Flat No*',
-                style: GoogleFonts.poppins(
-                  fontSize: AppTextStyles.bodyText.fontSize,
-                  color: AppColors.neutralBlack,
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _flatNoController,
+                      decoration: _buildInputDecoration('Enter Flat No.'),
+                      style: GoogleFonts.poppins(color: AppColors.neutralBlack),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter your flat number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 60),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _submitForm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPurple,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25.0),
+                          ),
+                        ),
+                        child: _isSaving
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                'CONTINUE',
+                                style: GoogleFonts.poppins(
+                                  fontSize: AppTextStyles.buttonText.fontSize,
+                                  color: AppColors.neutralWhite,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 1.5,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _flatNoController,
-                decoration: _buildInputDecoration('Enter Flat No.'),
-                style: GoogleFonts.poppins(color: AppColors.neutralBlack),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter your flat number';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 60), // Increased space before the button
-              // Continue Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed:
-                      _submitForm, // Calls the validation and navigation logic
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25.0),
-                    ),
-                  ),
-                  child: Text(
-                    'CONTINUE',
-                    style: GoogleFonts.poppins(
-                      fontSize: AppTextStyles.buttonText.fontSize,
-                      color: AppColors.neutralWhite,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

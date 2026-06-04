@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/mobile_number_screen.dart'; // Navigate to MobileNumberScreen
+import 'package:superbai/mobile_number_screen.dart';
+import 'package:superbai/services/auth_flow_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,6 +12,7 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
+  final AuthFlowService _authFlowService = AuthFlowService();
   // Animation for the "SUPER BA" text sliding from right
   late AnimationController _textSlideController;
   late Animation<Offset> _textSlideAnimation;
@@ -181,11 +183,18 @@ class _SplashScreenState extends State<SplashScreen>
     // 6. Wait for another 2 seconds after the logo covers the screen
     await Future.delayed(const Duration(seconds: 2));
 
-    // 7. Navigate to Mobile Number Page
+    // 7. Route to login, profile setup, or home based on auth + User doc
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const MobileNumberScreen()),
-      );
+      try {
+        final screen = await _authFlowService.destinationScreen();
+        if (!mounted) return;
+        _authFlowService.navigateReplace(context, screen);
+      } catch (_) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MobileNumberScreen()),
+        );
+      }
     }
   }
 

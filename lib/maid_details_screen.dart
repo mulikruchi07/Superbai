@@ -1,8 +1,8 @@
-// maid_details_screen.dart
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:superbai/add_maid_screen.dart';
+import 'package:superbai/provided_services_screen.dart';
 import 'package:superbai/theme.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import GoogleFonts
-import 'package:superbai/provided_services_screen.dart'; // Import the new ProvidedServicesScreen
 
 class MaidDetailsScreen extends StatelessWidget {
   // Maid data to be passed to this screen
@@ -32,7 +32,22 @@ class MaidDetailsScreen extends StatelessWidget {
             Navigator.pop(context);
           },
         ),
-        centerTitle: false, // Ensure title is not centered if it were present
+        centerTitle: false,
+        actions: [
+          if (maidData['id'] != null)
+            IconButton(
+              icon: Icon(Icons.edit_outlined, color: AppColors.neutralWhite),
+              onPressed: () async {
+                await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AddMaidScreen(maidId: maidData['id'] as String),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
@@ -117,17 +132,29 @@ class MaidDetailsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 3), // Smaller gap
-                      Text(
-                        '${maidData['experience'] ?? 'X+'} yr experience',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppColors.neutralBlack,
-                          fontWeight: FontWeight.normal,
+                      if ((maidData['services'] as List?)?.isNotEmpty ?? false)
+                        Text(
+                          (maidData['services'] as List).join(', '),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.neutralBlack,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 3), // Smaller gap
+                      if (maidData['phoneNumber'] != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          'Phone: ${maidData['phoneNumber']}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: AppColors.neutralBlack,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 3),
                       Text(
-                        maidData['location'] ?? 'Location',
+                        maidData['location']?.toString().isNotEmpty == true
+                            ? maidData['location']
+                            : 'No workplace set',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: AppColors.neutralBlack,

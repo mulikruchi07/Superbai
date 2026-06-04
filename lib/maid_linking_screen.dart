@@ -1,260 +1,305 @@
-import 'package:flutter/material.dart';
-import 'package:superbai/salary_screen.dart';
-import 'package:superbai/theme.dart';
-import 'package:superbai/dashboard_screen.dart'; // Import DashboardScreen
-import 'package:google_fonts/google_fonts.dart'; // Import GoogleFonts
-import 'dart:math'; // Import for min function
+import 'dart:math';
 
-class MaidLinkingScreen extends StatelessWidget {
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:superbai/dashboard_screen.dart';
+import 'package:superbai/exceptions/maid_slot_unavailable_exception.dart';
+import 'package:superbai/repositories/appointment_repository.dart';
+import 'package:superbai/theme.dart';
+
+class MaidLinkingScreen extends StatefulWidget {
   final Map<String, dynamic>? maidData;
 
   const MaidLinkingScreen({super.key, this.maidData});
 
-  // Helper function for responsive font size
+  @override
+  State<MaidLinkingScreen> createState() => _MaidLinkingScreenState();
+}
+
+class _MaidLinkingScreenState extends State<MaidLinkingScreen> {
+  final _appointmentRepository = AppointmentRepository();
+  bool _isLinking = true;
+  bool _linked = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _linkMaidNow());
+  }
+
   double getResponsiveFontSize(double baseSize, double screenWidth) {
-    // Scale font size based on screen width, with a minimum size
-    return max(
-      baseSize * (screenWidth / 414.0),
-      12.0,
-    ); // 414 is a reference width (e.g., iPhone 11 Pro Max)
+    return max(baseSize * (screenWidth / 414.0), 12.0);
+  }
+
+  Future<void> _linkMaidNow() async {
+    if (_linked) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    final args = widget.maidData ?? {};
+    final maidId = AppointmentRepository.maidIdFromRouteArguments(args);
+
+    if (user == null) {
+      setState(() {
+        _isLinking = false;
+        _errorMessage = 'Please sign in again.';
+      });
+      return;
+    }
+
+    if (maidId == null) {
+      setState(() {
+        _isLinking = false;
+        _errorMessage = 'Maid not found. Please select your maid again.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLinking = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _appointmentRepository.createFromMaidOnboarding(
+        authUser: user,
+        maidId: maidId,
+        routeArguments: args,
+      );
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _linked = true;
+      });
+    } on MaidSlotUnavailableException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _errorMessage = e.message;
+      });
+    } on StateError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _errorMessage = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _errorMessage = 'Could not link maid. Please try again.';
+      });
+    }
+  }
+
+  void _navigateHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      (Route<dynamic> route) => false,
+    );
+  }
+
+  Map<String, dynamic> _displayArgs() => widget.maidData ?? {};
+
+  String _maidName() {
+    final display = _displayArgs();
+    final nestedMaid = display['maidData'];
+    final maidMap = nestedMaid is Map<String, dynamic> ? nestedMaid : null;
+    return (maidMap?['name'] as String?) ??
+        (display['name'] as String?) ??
+        'Your maid';
+  }
+
+  Widget _buildSummaryCard(double screenWidth, double screenHeight) {
+    final display = _displayArgs();
+    final serviceTitle = display['serviceTitle'] ?? 'N/A';
+    final salary = display['salary'] ?? 'N/A';
+    final dateOfPayment = display['dateOfPayment'] ?? 'N/A';
+    final numberOfShifts = display['numberOfShifts'] ?? 1;
+    final shiftSlotsDynamic = display['selectedShiftTimes'];
+    final List<String> shiftSlots = shiftSlotsDynamic is List
+        ? shiftSlotsDynamic.map((s) => s.toString()).toList()
+        : <String>[];
+    final timeSlotDisplay =
+        shiftSlots.where((String s) => s.isNotEmpty).join(' | ');
+
+    final selectedAllRounderTypesDynamic =
+        display['currentSelectedAllRounderTypes'];
+    final selectedAllRounderTypes = selectedAllRounderTypesDynamic
+        ?.map((e) => e.toString())
+        .toList();
+
+    String serviceDisplay = serviceTitle.toString();
+    if (serviceDisplay == 'All-rounder' &&
+        selectedAllRounderTypes != null &&
+        selectedAllRounderTypes.isNotEmpty) {
+      serviceDisplay =
+          'All-rounder (${selectedAllRounderTypes.join(', ')})';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(screenWidth * 0.05),
+      decoration: BoxDecoration(
+        color: AppColors.neutralWhite,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppColors.neutralLightGray, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Maid : ${_maidName()}',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.005),
+          Text(
+            'Shifts : $numberOfShifts',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.005),
+          Text(
+            'Time : $timeSlotDisplay',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.005),
+          Text(
+            'Service : $serviceDisplay',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.005),
+          Text(
+            'Salary : $salary',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+            ),
+          ),
+          SizedBox(height: screenHeight * 0.005),
+          Text(
+            'Payment Date : $dateOfPayment',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(14, screenWidth),
+              color: AppColors.primaryPurple,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Getting screen dimensions for responsive UI
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+    final maidName = _maidName();
 
-    // Use the maidData passed from the previous screen
-    final displayMaidData = maidData ?? {}; // Ensure it's not null
-
-    // Extract relevant data from displayMaidData
-    final String maidName =
-        (displayMaidData['maidData'] as Map<String, dynamic>?)?['name'] ??
-        'N/A';
-    final String serviceTitle = displayMaidData['serviceTitle'] ?? 'N/A';
-    final String salary = displayMaidData['salary'] ?? 'N/A';
-    final String dateOfPayment = displayMaidData['dateOfPayment'] ?? 'N/A';
-    final int numberOfShifts = displayMaidData['numberOfShifts'] ?? 1;
-    final List<dynamic>? shiftSlotsDynamic =
-        displayMaidData['selectedShiftTimes'];
-    final List<String?> shiftSlots =
-        shiftSlotsDynamic?.map((s) => s.toString()).toList() ?? [];
-    final String timeSlotDisplay = shiftSlots
-        .where((s) => s != null)
-        .join(' | ');
-
-    final List<dynamic>? selectedAllRounderTypesDynamic =
-        displayMaidData['currentSelectedAllRounderTypes'];
-    final List<String>? selectedAllRounderTypes = selectedAllRounderTypesDynamic
-        ?.map((e) => e.toString())
-        .toList();
-
-    // Determine the service display string
-    String serviceDisplay = serviceTitle;
-    if (serviceTitle == 'All-rounder' &&
-        selectedAllRounderTypes != null &&
-        selectedAllRounderTypes.isNotEmpty) {
-      serviceDisplay = 'All-rounder (${selectedAllRounderTypes.join(', ')})';
-    }
-
-    return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryPurple,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        title: Text(
-          'Confirmation',
-          style: GoogleFonts.poppins(
-            fontSize: getResponsiveFontSize(18, screenWidth),
-            color: AppColors.neutralWhite,
-            fontWeight: FontWeight.normal,
+    return PopScope(
+      canPop: !_isLinking,
+      child: Scaffold(
+        backgroundColor: AppColors.neutralWhite,
+        appBar: AppBar(
+          backgroundColor: AppColors.primaryPurple,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
+            onPressed: _isLinking ? null : () => Navigator.of(context).pop(),
           ),
-        ),
-        centerTitle: false,
-      ),
-      body: SingleChildScrollView(
-        // To prevent vertical overflow on small screens
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.05,
-          ), // Responsive padding
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  screenHeight -
-                  kToolbarHeight -
-                  MediaQuery.of(context).padding.top,
+          title: Text(
+            _linked ? 'Maid linked' : 'Confirmation',
+            style: GoogleFonts.poppins(
+              fontSize: getResponsiveFontSize(18, screenWidth),
+              color: AppColors.neutralWhite,
+              fontWeight: FontWeight.normal,
             ),
+          ),
+          centerTitle: false,
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween, // Distribute space
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  children: [
-                    SizedBox(height: screenHeight * 0.03), // Responsive spacing
-                    // Top Icon
-                    Image.asset(
-                      'assets/linking_icon.png',
-                      height: screenWidth * 0.25, // Responsive size
-                      width: screenWidth * 0.25, // Responsive size
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.person_pin_circle,
-                          size: screenWidth * 0.25, // Responsive size
-                          color: AppColors.emotionYellow,
-                        );
-                      },
-                    ),
-                    SizedBox(height: screenHeight * 0.03),
-
-                    // "Hurray!" Text
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Hurray! Your Maid Linking under approval',
-                        textAlign: TextAlign.left,
-                        style: GoogleFonts.poppins(
-                          fontSize: getResponsiveFontSize(18, screenWidth),
-                          color: AppColors.primaryPurple,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: screenHeight * 0.02),
-                    // Maid Details Card
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.all(
-                        screenWidth * 0.05,
-                      ), // Responsive padding
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPurple.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppColors.primaryPurple,
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Maid Profile Picture
-                          Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.primaryPurple,
-                                width: 1.0,
-                              ),
-                            ),
-                            child: CircleAvatar(
-                              radius: screenWidth * 0.1, // Responsive radius
-                              backgroundColor: AppColors.secondaryPastelPurple,
-                              child: Text(
-                                maidName.isNotEmpty
-                                    ? maidName[0].toUpperCase()
-                                    : 'S',
-                                style: GoogleFonts.poppins(
-                                  fontSize: getResponsiveFontSize(
-                                    40,
-                                    screenWidth,
-                                  ),
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        SizedBox(height: screenHeight * 0.03),
+                        if (_isLinking) ...[
+                          CircularProgressIndicator(
+                            color: AppColors.primaryPurple,
+                          ),
+                          SizedBox(height: screenHeight * 0.02),
+                          Text(
+                            'Linking $maidName to your booking…',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: getResponsiveFontSize(16, screenWidth),
+                              color: AppColors.neutralBlack,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          SizedBox(height: screenHeight * 0.015),
+                        ] else if (_linked) ...[
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 56,
+                            color: AppColors.primaryPurple,
+                          ),
+                          SizedBox(height: screenHeight * 0.02),
                           Text(
-                            maidName,
+                            'Maid linked successfully',
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.poppins(
                               fontSize: getResponsiveFontSize(18, screenWidth),
                               color: AppColors.primaryPurple,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: screenHeight * 0.015),
-                          // Details block
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Time-slot: $timeSlotDisplay ($numberOfShifts shifts)',
-                                style: GoogleFonts.poppins(
-                                  fontSize: getResponsiveFontSize(
-                                    14,
-                                    screenWidth,
-                                  ),
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.005),
-                              Text(
-                                'Service : $serviceDisplay',
-                                style: GoogleFonts.poppins(
-                                  fontSize: getResponsiveFontSize(
-                                    14,
-                                    screenWidth,
-                                  ),
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.005),
-                              Text(
-                                'Salary : $salary',
-                                style: GoogleFonts.poppins(
-                                  fontSize: getResponsiveFontSize(
-                                    14,
-                                    screenWidth,
-                                  ),
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.005),
-                              Text(
-                                'Payment Date : $dateOfPayment',
-                                style: GoogleFonts.poppins(
-                                  fontSize: getResponsiveFontSize(
-                                    14,
-                                    screenWidth,
-                                  ),
-                                  color: AppColors.primaryPurple,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                            ],
+                          SizedBox(height: screenHeight * 0.01),
+                          Text(
+                            '$maidName is assigned to your booking for the selected time slot.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: getResponsiveFontSize(14, screenWidth),
+                              color: AppColors.neutralDarkGray,
+                            ),
+                          ),
+                          SizedBox(height: screenHeight * 0.03),
+                          _buildSummaryCard(screenWidth, screenHeight),
+                        ] else ...[
+                          Icon(
+                            Icons.error_outline,
+                            size: 56,
+                            color: AppColors.emotionOrangeRed,
+                          ),
+                          SizedBox(height: screenHeight * 0.02),
+                          Text(
+                            _errorMessage ?? 'Could not link maid.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: getResponsiveFontSize(14, screenWidth),
+                              color: AppColors.emotionOrangeRed,
+                            ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                    SizedBox(height: screenHeight * 0.03),
-                    // "Your Maid will be linked..." Text
-                    Text(
-                      'Your Maid will be linked\nonce $maidName confirms\nall the details.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.poppins(
-                        fontSize: getResponsiveFontSize(16, screenWidth),
-                        color: AppColors.primaryPink,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-
-                // Go To Home Button - Pushed to the bottom
                 Padding(
                   padding: EdgeInsets.only(
                     top: screenHeight * 0.02,
@@ -263,26 +308,28 @@ class MaidLinkingScreen extends StatelessWidget {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Navigate back to the DashboardScreen
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => const DashboardScreen(),
-                          ),
-                          (Route<dynamic> route) => false,
-                        );
-                      },
+                      onPressed: _isLinking
+                          ? null
+                          : () {
+                              if (_linked) {
+                                _navigateHome();
+                              } else {
+                                _linkMaidNow();
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryPurple,
                         padding: EdgeInsets.symmetric(
                           vertical: screenHeight * 0.02,
-                        ), // Responsive padding
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30.0),
                         ),
                       ),
                       child: Text(
-                        'GO TO HOME',
+                        _linked
+                            ? 'GO TO HOME'
+                            : (_errorMessage != null ? 'TRY AGAIN' : 'GO TO HOME'),
                         style: GoogleFonts.poppins(
                           fontSize: getResponsiveFontSize(
                             AppTextStyles.buttonText.fontSize ?? 16,

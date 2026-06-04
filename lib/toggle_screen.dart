@@ -4,7 +4,7 @@ import 'package:superbai/find_maid_screen.dart'; // Corrected import to FindMaid
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
 import 'package:superbai/select_service_screen.dart'; // Import the new SelectServiceScreen
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:superbai/repositories/user_repository.dart';
 
 class ToggleScreen extends StatefulWidget {
   const ToggleScreen({super.key});
@@ -28,17 +28,11 @@ class _ToggleScreenState extends State<ToggleScreen> {
   // Function to fetch the user's full name from Firestore
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('DIM_USERS')
-          .doc(user.uid)
-          .get();
-      if (mounted && userDoc.exists && userDoc.data() != null) {
-        setState(() {
-          // Update the state with the fetched name
-          _userName = userDoc.data()!['FullName'] ?? 'User';
-        });
-      }
+    if (user == null) return;
+
+    final profile = await UserRepository().getProfileForAuthUser(user);
+    if (mounted && profile != null && profile.name.isNotEmpty) {
+      setState(() => _userName = profile.name);
     }
   }
 

@@ -1,8 +1,12 @@
 // find_maid_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // Import for GoogleFonts
+import 'package:google_fonts/google_fonts.dart';
+import 'package:superbai/add_maid_screen.dart';
+import 'package:superbai/repositories/maid_repository.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/maid_details_screen.dart'; // Import the maid details screen
+import 'package:superbai/maid_details_screen.dart';
 
 // The main "Find Maid" screen, which now starts with "Search Your Maid"
 class FindMaidScreen extends StatefulWidget {
@@ -14,124 +18,36 @@ class FindMaidScreen extends StatefulWidget {
 
 class _FindMaidScreenState extends State<FindMaidScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final MaidRepository _maidRepository = MaidRepository();
+  StreamSubscription? _maidsSub;
 
-  // Dummy data for maid list
-  // IMPORTANT: Changed to dynamic to accommodate boolean 'isVerified'
-  final List<Map<String, dynamic>> _maids = [
-    {
-      'name': 'Rani Obey',
-      'role': 'Babysitter',
-      'code': '9641',
-      'gender': 'Female',
-      'age': '22',
-      'experience': '5+',
-      'location': 'Bhandup',
-      'isVerified': true, // Added isVerified
-    },
-    {
-      'name': 'Marci Senter',
-      'role': 'Elder care',
-      'code': '8765',
-      'gender': 'Female',
-      'age': '30',
-      'experience': '8+',
-      'location': 'Andheri',
-      'isVerified': false, // Added isVerified
-    },
-    {
-      'name': 'Maryland Winkles',
-      'role': 'All-rounder',
-      'code': '1234',
-      'gender': 'Female',
-      'age': '25',
-      'experience': '3+',
-      'location': 'Dadar',
-      'isVerified': true, // Added isVerified
-    },
-    {
-      'name': 'Francene Vandyne',
-      'role': 'Cleaner',
-      'code': '1234',
-      'gender': 'Female',
-      'age': '25',
-      'experience': '3+',
-      'location': 'Dadar',
-      'isVerified': false, // Added isVerified
-    },
-    {
-      'name': 'Chieko Chute',
-      'role': 'Cook',
-      'code': '5678',
-      'gender': 'Female',
-      'age': '40',
-      'experience': '10+',
-      'location': 'Chembur',
-      'isVerified': true, // Added isVerified
-    },
-    {
-      'name': 'Lauralae Quintero',
-      'role': 'Washing Clothes',
-      'code': '9012',
-      'gender': 'Female',
-      'age': '35',
-      'experience': '7+',
-      'location': 'Borivali',
-      'isVerified': false, // Added isVerified
-    },
-    {
-      'name': 'Marielle Wigington',
-      'role': 'Cleaner',
-      'code': '3456',
-      'gender': 'Female',
-      'age': '28',
-      'experience': '4+',
-      'location': 'Ghatkopar',
-      'isVerified': true, // Added isVerified
-    },
-    {
-      'name': 'John Doe',
-      'role': 'Gardener',
-      'code': '7890',
-      'gender': 'Male',
-      'age': '45',
-      'experience': '12+',
-      'location': 'Worli',
-      'isVerified': false, // Added isVerified
-    },
-    {
-      'name': 'Jane Smith',
-      'role': 'Housekeeper',
-      'code': '2345',
-      'gender': 'Female',
-      'age': '32',
-      'experience': '6+',
-      'location': 'Powai',
-      'isVerified': true, // Added isVerified
-    },
-    {
-      'name': 'Emily White',
-      'role': 'Child Caretaker',
-      'code': '6789',
-      'gender': 'Female',
-      'age': '27',
-      'experience': '2+',
-      'location': 'Thane',
-      'isVerified': false, // Added isVerified
-    },
-  ];
-
-  // IMPORTANT: Changed to dynamic
+  List<Map<String, dynamic>> _maids = [];
   List<Map<String, dynamic>> _filteredMaids = [];
+  bool _loadingMaids = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredMaids = _maids; // Initialize with all maids
     _searchController.addListener(_filterMaids);
+    _maidsSub = _maidRepository.watchAll().listen(
+      (records) {
+        if (!mounted) return;
+        setState(() {
+          _maids = records.map((r) => r.toUiMap()).toList();
+          _loadingMaids = false;
+          _filterMaids();
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() => _loadingMaids = false);
+      },
+    );
   }
 
   @override
   void dispose() {
+    _maidsSub?.cancel();
     _searchController.removeListener(_filterMaids);
     _searchController.dispose();
     super.dispose();
@@ -139,12 +55,25 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
 
   void _filterMaids() {
     setState(() {
+      final query = _searchController.text.toLowerCase();
       _filteredMaids = _maids.where((maid) {
-        final query = _searchController.text.toLowerCase();
-        return maid['name']!.toLowerCase().contains(query) ||
-            maid['role']!.toLowerCase().contains(query);
+        final name = (maid['name'] as String? ?? '').toLowerCase();
+        final role = (maid['role'] as String? ?? '').toLowerCase();
+        return name.contains(query) || role.contains(query);
       }).toList();
     });
+  }
+
+  Future<void> _openAddMaid({String? maidId}) async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => AddMaidScreen(maidId: maidId)),
+    );
+    if (added == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(maidId != null ? 'Maid updated' : 'Maid added')),
+      );
+    }
   }
 
   // Helper to get an icon based on the maid's role
@@ -196,7 +125,14 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
             fontWeight: FontWeight.normal, // Not bold
           ),
         ),
-        centerTitle: false, // Align title to the left
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.person_add_outlined, color: AppColors.neutralWhite),
+            tooltip: 'Add maid',
+            onPressed: () => _openAddMaid(),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -249,7 +185,20 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
+            child: _loadingMaids
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredMaids.isEmpty
+                ? Center(
+                    child: Text(
+                      _maids.isEmpty
+                          ? 'No maids yet. Tap + to add one.'
+                          : 'No maids match your search.',
+                      style: GoogleFonts.poppins(
+                        color: AppColors.neutralDarkGray,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
               itemCount: _filteredMaids.length,
               itemBuilder: (context, index) {
                 final maid = _filteredMaids[index];
@@ -259,7 +208,6 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
                     horizontal: 20.0,
                   ), // Keep horizontal padding
                   child: Row(
-                    // Use Row to align elements and control tap area
                     children: [
                       // Profession Icon (white fill, purple transparent outline, black icon)
                       Container(
@@ -277,7 +225,7 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
                         ),
                         child: Center(
                           child: Icon(
-                            _getRoleIcon(maid['role']!), // Role-specific icon
+                            _getRoleIcon(maid['role'] as String),
                             color: AppColors.neutralBlack, // Black icon color
                             size: 24, // Icon size within the circle
                           ),
@@ -291,7 +239,7 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              maid['name']!,
+                              maid['name'] as String,
                               style: GoogleFonts.poppins(
                                 fontSize: 14, // Smaller font size
                                 color: AppColors.neutralBlack,
@@ -299,7 +247,7 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
                               ),
                             ),
                             Text(
-                              maid['role']!,
+                              maid['role'] as String,
                               style: GoogleFonts.poppins(
                                 fontSize: 12, // Smaller font size
                                 color: AppColors.neutralDarkGray,

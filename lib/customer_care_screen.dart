@@ -5,8 +5,6 @@ import 'package:superbai/account_screen.dart'; // For back navigation
 import 'package:package_info_plus/package_info_plus.dart'; // For app info, if needed for WhatsApp/Message
 import 'package:url_launcher/url_launcher.dart';
 import 'package:superbai/booking_screen.dart';
-import 'package:superbai/complaint_screen.dart';
-
 // --- CustomerCareScreen Class ---
 class CustomerCareScreen extends StatefulWidget {
   const CustomerCareScreen({super.key});
@@ -463,7 +461,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
                             FAQAnswerScreen(
                               screenTitle: 'Incorrect Charge Complaint',
                               contentText:
-                                  'If you were charged incorrectly, go to the "Account" tab, then "Customer Care," and select "File a Complaint." Choose "Incorrect Charge" as the reason and provide details. Our team will review and assist you.',
+                                  'If you were charged incorrectly, tap "File a Complaint" under Account or on your booking card. This opens WhatsApp so you can describe the issue. Our team will review and assist you.',
                               showStillNeedHelp:
                                   _showStillNeedHelpSlider, // Pass the function
                             ),
@@ -497,7 +495,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
                             FAQAnswerScreen(
                               screenTitle: 'Service Quality Complaint',
                               contentText:
-                                  'If you are not satisfied with service quality, go to the "Account" tab, then "Customer Care," and select "File a Complaint." Choose "Service Quality" as the reason and describe the issue. We will investigate and take appropriate action.',
+                                  'If you are not satisfied with service quality, tap "File a Complaint" under Account or on your booking card. This opens WhatsApp so you can describe the issue. We will investigate and take appropriate action.',
                               showStillNeedHelp:
                                   _showStillNeedHelpSlider, // Pass the function
                             ),

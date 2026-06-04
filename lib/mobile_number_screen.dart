@@ -3,7 +3,7 @@ import 'package:superbai/theme.dart';
 import 'dart:async'; // Required for Timer
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:superbai/user_details_screen.dart'; // Import Firebase Auth
+import 'package:superbai/services/auth_flow_service.dart';
 
 // Enum to manage the state of the MobileNumberScreen
 enum MobileScreenState { mobileInput, otpInput }
@@ -21,6 +21,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
 
   // --- Firebase and Auth State ---
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthFlowService _authFlowService = AuthFlowService();
   String? _verificationId; // To store the verification ID from Firebase
   bool _isLoading = false; // To show a loading indicator on buttons
   bool _isOtpInvalid = false; // NEW: To track OTP error state
@@ -239,18 +240,32 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
     try {
       await _auth.signInWithCredential(credential);
       if (!mounted) return;
-      _continueAfterAuth();
+      await _continueAfterAuth();
     } on FirebaseAuthException {
       setState(() => _isLoading = false);
     }
   }
 
-  void _continueAfterAuth() {
+  Future<void> _continueAfterAuth() async {
     if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const UserDetailsScreen()),
-      (Route<dynamic> route) => false,
-    );
+    final authUser = _auth.currentUser;
+    if (authUser == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    try {
+      final nextScreen = await _authFlowService.screenAfterSignIn(authUser);
+      if (!mounted) return;
+      _authFlowService.navigateReplace(context, nextScreen);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Signed in but could not load profile. Try again.'),
+        ),
+      );
+    }
   }
 
   @override

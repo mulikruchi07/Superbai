@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
-import 'package:superbai/complaint_screen.dart';
 import 'package:superbai/bill_screen.dart';
 import 'package:superbai/account_screen.dart';
 import 'package:superbai/select_service_screen.dart';
@@ -13,6 +12,9 @@ import 'package:superbai/maid_linking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:superbai/data/service_catalog.dart';
+import 'package:superbai/exceptions/maid_slot_unavailable_exception.dart';
+import 'package:superbai/repositories/appointment_repository.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -29,15 +31,16 @@ class _BookingScreenState extends State<BookingScreen>
   int _selectedNavbarIndex = 1;
   bool _isLoading = true; // Master loading state for initial fetch
   String _loadingMessage = '';
-  final List<Map<String, String>> services = [
-    {'name': 'Cleaning', 'image': 'assets/dashboard_images/cleaning_icon.png'},
-    {'name': 'Cooking', 'image': 'assets/dashboard_images/cooking_icon.jpg'},
-  ];
+  List<Map<String, String>> get services =>
+      ServiceCatalog.all.map((s) => s.toGridItem()).toList();
+
+  List<Map<String, String>> get instantServices =>
+      ServiceCatalog.instantBookable.map((s) => s.toGridItem()).toList();
   // --- State Management for Bookings ---
   List<Map<String, dynamic>> _activeBookings = [];
-  List<Map<String, dynamic>> _instantBookings = [];
   List<Map<String, dynamic>> _previousBookings = []; // For completed bookings
   StreamSubscription? _bookingSubscription;
+  final AppointmentRepository _appointmentRepository = AppointmentRepository();
 
   @override
   void initState() {
@@ -58,7 +61,7 @@ class _BookingScreenState extends State<BookingScreen>
     super.dispose();
   }
 
-  // Fetches and processes bookings efficiently.
+  // Loads [Appointments] for the signed-in [User] profile (by phone / UID).
   void _fetchBookings() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -66,124 +69,19 @@ class _BookingScreenState extends State<BookingScreen>
       return;
     }
 
-    // NOTE: This query requires a composite index in Firestore.
-    // Please create an index on 'UserID' (ascending) and 'Status' (ascending)
-    // for the 'FACT_BOOKINGS' collection.
-    final query = FirebaseFirestore.instance
-        .collection('FACT_BOOKINGS')
-        .where('UserID', isEqualTo: user.uid)
-        .where('Status', isNotEqualTo: 'Cancelled');
-
-    _bookingSubscription = query.snapshots().listen(
-      (snapshot) async {
-        if (!mounted) return;
-        if (snapshot.docs.isEmpty) {
-          _processAndSetBookings([]);
-          if (mounted) setState(() => _isLoading = false);
-          return;
-        }
-
-        List<Map<String, dynamic>> bookingsData = snapshot.docs.map((doc) {
-          final data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-
-        // **FIX**: Filter out null IDs to prevent crashes during batch fetching.
-        final serviceIds = bookingsData
-            .map((b) => b['ServiceID'] as String?)
-            .where((id) => id != null)
-            .toSet()
-            .toList();
-        final timeSlotIds = bookingsData
-            .map((b) => b['TimeSlotID'] as String?)
-            .where((id) => id != null)
-            .toSet()
-            .toList();
-        final salaryIds = bookingsData
-            .map((b) => b['SalaryID'] as String?)
-            .where((id) => id != null)
-            .toSet()
-            .toList();
-
-        // Fetch related documents in parallel using 'whereIn'
-        final serviceDocsFuture = serviceIds.isNotEmpty
-            ? FirebaseFirestore.instance
-                  .collection('DIM_SERVICES')
-                  .where(FieldPath.documentId, whereIn: serviceIds)
-                  .get()
-            : Future.value(null);
-        final timeSlotDocsFuture = timeSlotIds.isNotEmpty
-            ? FirebaseFirestore.instance
-                  .collection('DIM_TIME_SLOTS')
-                  .where(FieldPath.documentId, whereIn: timeSlotIds)
-                  .get()
-            : Future.value(null);
-        final salaryDocsFuture = salaryIds.isNotEmpty
-            ? FirebaseFirestore.instance
-                  .collection('DIM_SALARY')
-                  .where(FieldPath.documentId, whereIn: salaryIds)
-                  .get()
-            : Future.value(null);
-
-        final results = await Future.wait([
-          serviceDocsFuture,
-          timeSlotDocsFuture,
-          salaryDocsFuture,
-        ]);
-
-        final serviceDocs = results[0] as QuerySnapshot<Map<String, dynamic>>?;
-        final timeSlotDocs = results[1] as QuerySnapshot<Map<String, dynamic>>?;
-        final salaryDocs = results[2] as QuerySnapshot<Map<String, dynamic>>?;
-
-        // Create maps for efficient O(1) lookup
-        final serviceMap = {
-          for (var doc in serviceDocs?.docs ?? []) doc.id: doc.data(),
-        };
-        final timeSlotMap = {
-          for (var doc in timeSlotDocs?.docs ?? []) doc.id: doc.data(),
-        };
-        final salaryMap = {
-          for (var doc in salaryDocs?.docs ?? []) doc.id: doc.data(),
-        };
-
-        // Combine booking data with the fetched related data
-        List<Map<String, dynamic>> allBookings = [];
-        for (var bookingData in bookingsData) {
-          // **FIX**: Skip incomplete booking records to prevent errors.
-          if (bookingData['ServiceID'] == null ||
-              bookingData['TimeSlotID'] == null ||
-              bookingData['SalaryID'] == null) {
-            continue;
-          }
-
-          final service = serviceMap[bookingData['ServiceID']];
-          final timeSlot = timeSlotMap[bookingData['TimeSlotID']];
-          final salary = salaryMap[bookingData['SalaryID']];
-
-          allBookings.add({
-            ...bookingData,
-            'service': service?['ServiceName'] ?? 'N/A',
-            'timing': timeSlot?['TimeSlots'] ?? 'N/A',
-            'salary': 'Rs. ${salary?['Amount']?.toInt() ?? 0}',
-            'timeSlotData': timeSlot,
-            'name': 'Maid Name', // Placeholder
-            'contact': '9876543210', // Placeholder
-            'rating': 4.0, // Placeholder
-            'maidId': bookingData['MaidID'] ?? 'N/A',
-          });
-        }
-
-        _processAndSetBookings(allBookings);
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      },
-      onError: (error) {
-        debugPrint("Error fetching bookings: $error");
-        if (mounted) setState(() => _isLoading = false);
-      },
-    );
+    _bookingSubscription = _appointmentRepository
+        .watchBookingsForAuthUser(user)
+        .listen(
+          (allBookings) {
+            if (!mounted) return;
+            _processAndSetBookings(allBookings);
+            setState(() => _isLoading = false);
+          },
+          onError: (error) {
+            debugPrint('Error fetching appointments: $error');
+            if (mounted) setState(() => _isLoading = false);
+          },
+        );
   }
 
   DateTime _getBookingDateTime(
@@ -244,20 +142,56 @@ class _BookingScreenState extends State<BookingScreen>
     );
 
     List<Map<String, dynamic>> active = [];
-    List<Map<String, dynamic>> instant = [];
     List<Map<String, dynamic>> previous = [];
     bool ongoingFound = false;
     bool upNextFound = false;
 
     for (final booking in allBookings) {
-      String status = booking['Status'];
+      String status = booking['Status'] as String? ?? 'Soon';
+      final firestoreStatus =
+          (booking['firestoreStatus'] as String?)?.toLowerCase() ?? '';
+
+      if (firestoreStatus == 'completed') {
+        booking['Status'] = 'Completed';
+        previous.add(booking);
+        continue;
+      }
 
       if (status != 'Cancelled' && status != 'Backup Requested') {
         final startTime = _getBookingDateTime(booking);
         final endTime = _getBookingDateTime(booking, getEndTime: true);
         final now = DateTime.now();
+        final bookingType = booking['BookingType'] as String? ?? 'Daily';
+        final contractEndTs = booking['contractEndDate'] as Timestamp?;
+        final contractEnded = contractEndTs != null &&
+            now.isAfter(
+              DateTime(
+                contractEndTs.toDate().year,
+                contractEndTs.toDate().month,
+                contractEndTs.toDate().day,
+              ).add(const Duration(days: 1)),
+            );
 
-        if (now.isAfter(endTime)) {
+        // Daily / maid-linked jobs stay active until the contract end date,
+        // not when today's shift window has passed.
+        final isOngoingContract =
+            bookingType == 'Daily' &&
+            firestoreStatus != 'completed' &&
+            !contractEnded;
+
+        if (contractEnded) {
+          status = 'Completed';
+        } else if (isOngoingContract) {
+          if (now.isAfter(startTime) && now.isBefore(endTime)) {
+            status = 'Ongoing';
+            ongoingFound = true;
+          } else if (ongoingFound && !upNextFound) {
+            status = 'Up next';
+            upNextFound = true;
+          } else {
+            status = 'Soon';
+          }
+        } else if (now.isAfter(endTime)) {
           status = 'Completed';
         } else if (now.isAfter(startTime) && now.isBefore(endTime)) {
           status = 'Ongoing';
@@ -274,11 +208,8 @@ class _BookingScreenState extends State<BookingScreen>
       if (status == 'Completed') {
         previous.add(booking);
       } else if (status != 'Cancelled' && status != 'Backup Requested') {
-        if (booking['BookingType'] == 'Instant') {
-          instant.add(booking);
-        } else {
-          active.add(booking);
-        }
+        // Daily + Instant bookings both show under Active (Daily tab).
+        active.add(booking);
       }
     }
 
@@ -287,16 +218,11 @@ class _BookingScreenState extends State<BookingScreen>
       if (nextActiveIndex != -1) {
         active[nextActiveIndex]['Status'] = 'Up next';
       }
-      final nextInstantIndex = instant.indexWhere((b) => b['Status'] == 'Soon');
-      if (nextInstantIndex != -1) {
-        instant[nextInstantIndex]['Status'] = 'Up next';
-      }
     }
 
     if (mounted) {
       setState(() {
         _activeBookings = active;
-        _instantBookings = instant;
         _previousBookings = previous;
       });
     }
@@ -446,10 +372,9 @@ class _BookingScreenState extends State<BookingScreen>
                   TextButton(
                     onPressed: () async {
                       Navigator.pop(dialogContext);
-                      await FirebaseFirestore.instance
-                          .collection('FACT_BOOKINGS')
-                          .doc(bookingId)
-                          .update({'Status': 'Cancelled'});
+                      await _appointmentRepository.cancelAppointment(
+                        bookingId,
+                      );
                       _showCancelSuccessDialog();
                     },
                     child: Text(
@@ -468,10 +393,8 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  Future<void> _launchFlexibilityWhatsApp() async {
-    final message = Uri.encodeComponent(
-      'Hi SuperBai, I need help with Flexibility.',
-    );
+  Future<void> _openSupportWhatsApp(String messageText) async {
+    final message = Uri.encodeComponent(messageText);
     final appUri = Uri.parse(
       'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
     );
@@ -503,6 +426,23 @@ class _BookingScreenState extends State<BookingScreen>
         _showMessage('Could not open WhatsApp.');
       }
     }
+  }
+
+  Future<void> _launchFlexibilityWhatsApp() async {
+    await _openSupportWhatsApp('Hi SuperBai, I need help with Flexibility.');
+  }
+
+  Future<void> _launchComplaintWhatsApp(Map<String, dynamic> booking) async {
+    final parts = <String>['Hi SuperBai, I want to file a complaint.'];
+    final id = booking['id'] as String?;
+    final service = booking['service'] as String? ?? booking['name'] as String?;
+    if (id != null && id.isNotEmpty) {
+      parts.add('Booking ID: $id');
+    }
+    if (service != null && service.isNotEmpty) {
+      parts.add('Service: $service');
+    }
+    await _openSupportWhatsApp(parts.join(' '));
   }
 
   void _showMessage(String message) {
@@ -668,42 +608,24 @@ class _BookingScreenState extends State<BookingScreen>
         final user = FirebaseAuth.instance.currentUser;
         if (user == null) return;
 
-        final newTimeSlotDoc = await FirebaseFirestore.instance
-            .collection('DIM_TIME_SLOTS')
-            .add({
-              'NumberOfShifts': 1,
-              'TimeSlots':
-                  '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}',
-              'SelectedDays': [DateFormat('d/M/yyyy').format(result['date'])],
-            });
+        final timeSlotLabel =
+            '${(result['fromTime'] as TimeOfDay).format(context)} - ${(result['toTime'] as TimeOfDay).format(context)}';
 
-        final newSalaryDoc = await FirebaseFirestore.instance
-            .collection('DIM_SALARY')
-            .add({
-              'Amount': 500.0,
-              'PaymentDate': Timestamp.fromDate(result['date']),
-            });
-
-        await FirebaseFirestore.instance.collection('FACT_BOOKINGS').add({
-          'UserID': user.uid,
-          'MaidID': null,
-          'ServiceID': originalBooking['ServiceID'],
-          'TimeSlotID': newTimeSlotDoc.id,
-          'SalaryID': newSalaryDoc.id,
-          'BookingDate': Timestamp.fromDate(result['date']),
-          'TimeType': 'Custom',
-          'Status': 'Up next',
-          'BookingType': 'Instant',
-        });
-
-        await FirebaseFirestore.instance
-            .collection('FACT_BOOKINGS')
-            .doc(originalBooking['id'])
-            .update({'Status': 'Backup Requested'});
+        await _appointmentRepository.createBackupAppointment(
+          authUser: user,
+          originalBooking: originalBooking,
+          date: result['date'] as DateTime,
+          timeSlotLabel: timeSlotLabel,
+        );
 
         if (mounted) {
           _hideLoading();
           _tabController.animateTo(1);
+        }
+      } on MaidSlotUnavailableException catch (e) {
+        if (mounted) {
+          _hideLoading();
+          _showMessage(e.message);
         }
       } catch (e) {
         if (mounted) _hideLoading();
@@ -929,14 +851,7 @@ class _BookingScreenState extends State<BookingScreen>
   }
 
   Widget _buildInstantBookingTab() {
-    if (_isLoading && _instantBookings.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_instantBookings.isNotEmpty) {
-      return _buildBookingList(_instantBookings);
-    }
-
+    // Instant tab is book-only: Cleaning + Cooking cards (no booking cards here).
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,20 +883,24 @@ class _BookingScreenState extends State<BookingScreen>
                 mainAxisSpacing: 15,
                 childAspectRatio: 0.9,
               ),
-              itemCount: services.length,
+              itemCount: instantServices.length,
               itemBuilder: (context, index) {
-                final service = services[index];
+                final service = instantServices[index];
 
                 return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
+                  onTap: () async {
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => SelectServiceScreen(
                           initialServiceTitle: service['name']!,
+                          isInstantBooking: true,
                         ),
                       ),
                     );
+                    if (!mounted) return;
+                    // Show new instant booking under Active (Daily tab).
+                    _tabController.animateTo(0);
                   },
                   child: Container(
                     padding: const EdgeInsets.all(15),
@@ -1023,21 +942,6 @@ class _BookingScreenState extends State<BookingScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildBookingList(List<Map<String, dynamic>> bookings) {
-    if (bookings.isEmpty) {
-      return Center(
-        child: Text('No bookings found.', style: GoogleFonts.poppins()),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(20.0),
-      itemCount: bookings.length,
-      itemBuilder: (context, index) {
-        return _buildActiveBookingCard(bookings[index]);
-      },
     );
   }
 
@@ -1137,18 +1041,18 @@ class _BookingScreenState extends State<BookingScreen>
                     ),
                   ],
                 ),
-                if (!isInstant) ...[
-                  const SizedBox(height: 15),
-                  Wrap(
-                    spacing: 5.0,
-                    runSpacing: 5.0,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _buildOutlineButton(
-                        'Cancel',
-                        Icons.close,
-                        () => _showCancelDialog(booking['id']),
-                      ),
+                const SizedBox(height: 15),
+                Wrap(
+                  spacing: 5.0,
+                  runSpacing: 5.0,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    _buildOutlineButton(
+                      'Cancel',
+                      Icons.close,
+                      () => _showCancelDialog(booking['id']),
+                    ),
+                    if (!isInstant) ...[
                       _buildOutlineButton(
                         'Flexibility',
                         Icons.calendar_today_outlined,
@@ -1160,8 +1064,8 @@ class _BookingScreenState extends State<BookingScreen>
                         _showReplaceDialog,
                       ),
                     ],
-                  ),
-                ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -1169,12 +1073,7 @@ class _BookingScreenState extends State<BookingScreen>
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ComplaintScreen(),
-                  ),
-                ),
+                onPressed: () => _launchComplaintWhatsApp(booking),
                 icon: Icon(
                   Icons.edit_note_outlined,
                   color: AppColors.neutralBlack,

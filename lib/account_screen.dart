@@ -7,7 +7,8 @@ import 'package:superbai/bill_screen.dart';
 import 'package:superbai/location_screen.dart';
 import 'package:superbai/customer_care_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:superbai/repositories/services_repository.dart';
+import 'package:superbai/repositories/user_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'CouponScreen.dart';
 import 'EditProfileScreen.dart';
@@ -24,9 +25,12 @@ class AccountScreen extends StatefulWidget {
 
 class _AccountScreenState extends State<AccountScreen> {
   int _selectedNavbarIndex = 3; // Default to 'Account' tab
-  String _userName = 'Loading...'; // State variable to hold the user's name
+  String _userName = 'Loading...';
+  List<String> _userServices = [];
+  bool _isDeletingAccount = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UserRepository _userRepository = UserRepository();
+  final ServicesRepository _servicesRepository = ServicesRepository();
   static const String _supportWhatsAppNumber = '919876543210';
 
   @override
@@ -40,15 +44,18 @@ class _AccountScreenState extends State<AccountScreen> {
     final User? user = _auth.currentUser;
     if (user != null) {
       try {
-        final DocumentSnapshot userDoc = await _firestore
-            .collection('DIM_USERS')
-            .doc(user.uid)
-            .get();
+        final profile = await _userRepository.getProfileForAuthUser(user);
 
-        if (userDoc.exists && mounted) {
+        final services = await _servicesRepository.getUserServices(user);
+
+        if (mounted) {
           setState(() {
-            // Set the user name from the 'FullName' field in Firestore
-            _userName = userDoc.get('FullName') ?? 'No Name';
+            if (profile != null) {
+              _userName = profile.name.isNotEmpty ? profile.name : 'No Name';
+            } else {
+              _userName = 'No Name';
+            }
+            _userServices = services;
           });
         }
       } catch (e) {
@@ -64,15 +71,86 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  /// Handles the user logout process.
-  Future<void> _logout() async {
-    await _auth.signOut();
+  Future<void> _goToLogin() async {
     if (!mounted) return;
-    // Navigate back to the login screen and clear the navigation stack
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const MobileNumberScreen()),
       (Route<dynamic> route) => false,
     );
+  }
+
+  /// Handles the user logout process.
+  Future<void> _logout() async {
+    await _auth.signOut();
+    await _goToLogin();
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      _showMessage('You are not signed in.');
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete account?', style: GoogleFonts.poppins()),
+        content: Text(
+          'This permanently deletes your profile, bookings, payments, '
+          'reviews, complaints, and related data from SuperBai. '
+          'You will be signed out.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(color: AppColors.emotionOrangeRed),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isDeletingAccount = true);
+    try {
+      await _userRepository.deleteAllUserDataForAuthUser(user);
+
+      String? authNote;
+      try {
+        await user.delete();
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'requires-recent-login') {
+          authNote =
+              'Account data deleted. Sign in again recently to remove the phone login from this device.';
+        } else {
+          authNote =
+              'Account data deleted. Phone login could not be removed: ${e.message}';
+        }
+      } catch (e) {
+        authNote = 'Account data deleted. Phone login could not be removed: $e';
+      }
+
+      await _auth.signOut();
+      if (!mounted) return;
+      if (authNote != null) {
+        _showMessage(authNote);
+        await Future<void>.delayed(const Duration(milliseconds: 2500));
+        if (!mounted) return;
+      }
+      await _goToLogin();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isDeletingAccount = false);
+      _showMessage('Could not delete account data: $e');
+    }
   }
 
   Future<void> _openComplaintWhatsAppChat() async {
@@ -121,7 +199,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !_isDeletingAccount,
+      child: Stack(
+      children: [
+        Scaffold(
       backgroundColor: AppColors.neutralWhite,
       body: Column(
         children: [
@@ -201,6 +283,20 @@ class _AccountScreenState extends State<AccountScreen> {
                             ],
                           ),
                         ),
+                        if (_userServices.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Services: ${_userServices.join(', ')}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.neutralWhite.withValues(
+                                alpha: 0.9,
+                              ),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ],
                     ),
                     const Spacer(),
@@ -310,12 +406,20 @@ class _AccountScreenState extends State<AccountScreen> {
                     },
                   ),
                   _buildAccountOption(
+                    icon: Icons.person_remove_outlined,
+                    text: 'Delete account',
+                    textColor: AppColors.emotionOrangeRed,
+                    iconColor: AppColors.emotionOrangeRed,
+                    showArrow: false,
+                    onTap: _isDeletingAccount ? () {} : _deleteAccount,
+                  ),
+                  _buildAccountOption(
                     icon: Icons.logout,
                     text: 'Logout',
                     textColor: AppColors.emotionOrangeRed,
                     iconColor: AppColors.emotionOrangeRed,
                     showArrow: false,
-                    onTap: _logout, // Call the logout function
+                    onTap: _logout,
                   ),
                   const SizedBox(height: 20),
                 ],
@@ -373,6 +477,7 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ],
         onTap: (index) {
+          if (_isDeletingAccount) return;
           if (index == _selectedNavbarIndex) {
             return; // Avoid redundant navigation
           }
@@ -397,6 +502,20 @@ class _AccountScreenState extends State<AccountScreen> {
             );
           }
         },
+      ),
+        ),
+        if (_isDeletingAccount)
+          Positioned.fill(
+            child: ColoredBox(
+              color: AppColors.neutralBlack.withValues(alpha: 0.35),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primaryPurple,
+                ),
+              ),
+            ),
+          ),
+      ],
       ),
     );
   }

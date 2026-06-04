@@ -2,43 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart';
 import 'package:superbai/confirmation_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
+import 'package:superbai/data/service_catalog.dart';
 
 class SelectServiceScreen extends StatefulWidget {
   final String? initialServiceTitle;
+  final bool isInstantBooking;
 
-  const SelectServiceScreen({super.key, this.initialServiceTitle});
+  const SelectServiceScreen({
+    super.key,
+    this.initialServiceTitle,
+    this.isInstantBooking = false,
+  });
 
   @override
   State<SelectServiceScreen> createState() => _SelectServiceScreenState();
 }
 
 class _SelectServiceScreenState extends State<SelectServiceScreen> {
-  final List<Map<String, String>> _services = [
-    {'title': 'Cleaning', 'image': 'assets/dashboard_images/cleaning_icon.png'},
-    {'title': 'Cooking', 'image': 'assets/dashboard_images/cooking_icon.jpg'},
-    {'title': 'Laundry', 'image': 'assets/dashboard_images/laundry_icon.png'},
-    {
-      'title': 'Elder-care',
-      'image': 'assets/dashboard_images/elder_care_icon.png',
-    },
-    {
-      'title': 'Babysitter',
-      'image': 'assets/dashboard_images/baby_sitter_icon.png',
-    },
-    {
-      'title': 'All-rounder',
-      'image': 'assets/dashboard_images/all_rounder_icon.png',
-    },
-  ];
+  List<Map<String, String>> get _services => widget.isInstantBooking
+      ? ServiceCatalog.instantBookable.map((s) => s.toTitleImage()).toList()
+      : ServiceCatalog.all.map((s) => s.toTitleImage()).toList();
 
-  final Set<String> _comingSoonServices = {
-    'Laundry',
-    'Elder-care',
-    'Babysitter',
-    'All-rounder',
-  };
+  Set<String> get _comingSoonServices => widget.isInstantBooking
+      ? <String>{}
+      : ServiceCatalog.comingSoonTitles;
 
   String? _currentSelectedAreaOption;
   Set<String> _currentSelectedAdditionalServices = {};
@@ -963,6 +951,63 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
     );
   }
 
+  Widget _buildPreferredTimePicker(
+    BuildContext context,
+    StateSetter modalSetState, {
+    VoidCallback? onPicked,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: _preferredTime ?? TimeOfDay.now(),
+          builder: (BuildContext context, Widget? child) {
+            return Theme(
+              data: _buildEnhancedTimePickerTheme(),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          modalSetState(() {
+            _preferredTime = picked;
+            onPicked?.call();
+          });
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.neutralWhite,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.neutralMediumGray, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _preferredTime != null
+                  ? _preferredTime!.format(context)
+                  : 'Select Time',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: _preferredTime != null
+                    ? AppColors.neutralBlack
+                    : AppColors.neutralMediumGray,
+              ),
+            ),
+            Icon(
+              Icons.access_time,
+              color: AppColors.neutralMediumGray,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   ThemeData _buildEnhancedTimePickerTheme() {
     return ThemeData.light().copyWith(
       colorScheme: ColorScheme.light(
@@ -1165,6 +1210,33 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              if (widget.isInstantBooking) ...[
+                                Text(
+                                  'Preferred Time',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.neutralDarkGray,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                _buildPreferredTimePicker(
+                                  context,
+                                  modalSetState,
+                                  onPicked: () => timeSlotError = false,
+                                ),
+                                if (timeSlotError)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 8.0),
+                                    child: Text(
+                                      'Please select your preferred time.',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.red,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ] else ...[
                               Text(
                                 'Service type',
                                 style: GoogleFonts.poppins(
@@ -1442,7 +1514,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                       ),
                                   ],
                                 ),
-                              if (serviceTypeError)
+                              ],
+                              if (serviceTypeError && !widget.isInstantBooking)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Text(
@@ -1463,10 +1536,18 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                           onPressed: () {
                             bool isValid = true;
                             modalSetState(() {
-                              // We require a preferred time selected by the user.
-                              serviceTypeError = false;
-                              timeSlotError = (_preferredTime == null);
+                              if (widget.isInstantBooking) {
+                                serviceTypeError = false;
+                                timeSlotError = _preferredTime == null;
+                              } else {
+                                serviceTypeError = _currentServiceType == null;
+                                timeSlotError = _preferredTime == null;
+                              }
                             });
+
+                            if (serviceTypeError) {
+                              isValid = false;
+                            }
 
                             if (timeSlotError) {
                               isValid = false;
@@ -1474,14 +1555,26 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
 
                             if (!isValid) return;
 
-                            // Populate the existing slot container so downstream
-                            // code (ConfirmationScreen) remains compatible.
                             _selectedTimeSlots = {
                               _preferredTime!.format(context),
                             };
                             _currentNumShifts = 1;
+                            if (widget.isInstantBooking) {
+                              _currentServiceType = 'Instant';
+                            }
 
                             _currentBudget = _calculateFixedBudget();
+
+                            final selectedDays = widget.isInstantBooking
+                                ? {
+                                    DateFormat('d/M/yyyy').format(
+                                      DateTime.now(),
+                                    ),
+                                  }
+                                : _currentServiceType == 'Custom' &&
+                                      _selectedCustomDate != null
+                                ? {_formatDate(_selectedCustomDate)}
+                                : <String>{};
 
                             Navigator.push(
                               context,
@@ -1521,7 +1614,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                   currentSelectedShiftTimes: _selectedTimeSlots
                                       .toSet(),
                                   currentServiceType: _currentServiceType,
-                                  currentSelectedDays: <String>{}.toSet(),
+                                  currentSelectedDays: selectedDays,
                                   allRounderSubServiceData:
                                       _selectedServiceTitle == 'All-rounder'
                                       ? _allRounderSubServiceData

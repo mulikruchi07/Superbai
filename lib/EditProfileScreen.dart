@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:superbai/repositories/user_repository.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -18,7 +18,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailController = TextEditingController();
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final UserRepository _userRepository = UserRepository();
   bool _isLoading = true;
 
   @override
@@ -40,16 +40,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final User? user = _auth.currentUser;
     if (user != null) {
       try {
-        final DocumentSnapshot userDoc = await _firestore
-            .collection('DIM_USERS')
-            .doc(user.uid)
-            .get();
+        final profile = await _userRepository.getProfileForAuthUser(user);
 
-        if (userDoc.exists && mounted) {
-          _nameController.text = userDoc.get('FullName') ?? '';
-          // Mobile number is directly from the auth user object
+        if (profile != null && mounted) {
+          _nameController.text = profile.name;
+          _mobileController.text = user.phoneNumber ?? profile.phone;
+          _emailController.text = user.email ?? 'No email provided';
+        } else if (mounted) {
           _mobileController.text = user.phoneNumber ?? 'Not available';
-          // Email is not collected in your flow, so we'll leave it blank or show a message.
           _emailController.text = user.email ?? 'No email provided';
         }
       } catch (e) {
@@ -77,9 +75,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isLoading = true;
         });
         try {
-          await _firestore.collection('DIM_USERS').doc(user.uid).update({
-            'FullName': _nameController.text.trim(),
-          });
+          await _userRepository.updateName(
+            user,
+            _nameController.text.trim(),
+          );
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Profile updated successfully!')),
