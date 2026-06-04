@@ -6,7 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class SelectServiceScreen extends StatefulWidget {
-  const SelectServiceScreen({super.key});
+  final String? initialServiceTitle;
+
+  const SelectServiceScreen({super.key, this.initialServiceTitle});
 
   @override
   State<SelectServiceScreen> createState() => _SelectServiceScreenState();
@@ -26,7 +28,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
       'image': 'assets/dashboard_images/baby_sitter_icon.png',
     },
     {
-        'title': 'All-rounder',
+      'title': 'All-rounder',
       'image': 'assets/dashboard_images/all_rounder_icon.png',
     },
   ];
@@ -60,13 +62,27 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
 
   Set<String> _selectedTimeSlots = {};
   TimeOfDay? _preferredTime;
-  
 
   DateTime? _selectedCustomDate;
   String _selectedServiceTitle = '';
   int _currentAllRounderServiceIndex = 0;
   List<String> _allRounderSelectedSubServices = [];
   Map<String, Map<String, dynamic>> _allRounderSubServiceData = {};
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialServiceTitle != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _selectedServiceTitle = widget.initialServiceTitle!;
+        _currentAllRounderServiceIndex = 0;
+        _allRounderSelectedSubServices.clear();
+        _allRounderSubServiceData.clear();
+        _showServiceDetailsSheet(context, widget.initialServiceTitle!);
+      });
+    }
+  }
 
   final Map<String, List<Map<String, dynamic>>> _serviceFilters = {
     'Cleaning': [
@@ -957,9 +973,7 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
         secondary: AppColors.primaryPurple,
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primaryPurple,
-        ),
+        style: TextButton.styleFrom(foregroundColor: AppColors.primaryPurple),
       ),
       timePickerTheme: TimePickerThemeData(
         backgroundColor: AppColors.neutralWhite,
@@ -1038,7 +1052,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
           color: AppColors.neutralWhite,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppColors.primaryPurple : AppColors.neutralMediumGray,
+            color: isSelected
+                ? AppColors.primaryPurple
+                : AppColors.neutralMediumGray,
             width: 1.5,
           ),
         ),
@@ -1058,9 +1074,13 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected ? AppColors.primaryPurple : AppColors.neutralWhite,
+                color: isSelected
+                    ? AppColors.primaryPurple
+                    : AppColors.neutralWhite,
                 border: Border.all(
-                  color: isSelected ? AppColors.primaryPurple : AppColors.neutralMediumGray,
+                  color: isSelected
+                      ? AppColors.primaryPurple
+                      : AppColors.neutralMediumGray,
                   width: 2,
                 ),
               ),
@@ -1079,8 +1099,6 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
       ),
     );
   }
-
-
 
   void _showBudgetShiftModal(BuildContext context) {
     bool serviceTypeError = false;
@@ -1184,15 +1202,22 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                     const SizedBox(height: 10),
                                     GestureDetector(
                                       onTap: () async {
-                                        TimeOfDay? picked = await showTimePicker(
+                                        TimeOfDay?
+                                        picked = await showTimePicker(
                                           context: context,
-                                          initialTime: _preferredTime ?? TimeOfDay.now(),
-                                          builder: (BuildContext context, Widget? child) {
-                                            return Theme(
-                                              data: _buildEnhancedTimePickerTheme(),
-                                              child: child!,
-                                            );
-                                          },
+                                          initialTime:
+                                              _preferredTime ?? TimeOfDay.now(),
+                                          builder:
+                                              (
+                                                BuildContext context,
+                                                Widget? child,
+                                              ) {
+                                                return Theme(
+                                                  data:
+                                                      _buildEnhancedTimePickerTheme(),
+                                                  child: child!,
+                                                );
+                                              },
                                         );
                                         if (picked != null) {
                                           modalSetState(() {
@@ -1209,30 +1234,37 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: AppColors.neutralWhite,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
                                             color: AppColors.neutralMediumGray,
                                             width: 1.5,
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
                                               _preferredTime != null
-                                                  ? _preferredTime!.format(context)
+                                                  ? _preferredTime!.format(
+                                                      context,
+                                                    )
                                                   : 'Select Time',
                                               style: GoogleFonts.poppins(
                                                 fontSize: 14,
                                                 color: _preferredTime != null
                                                     ? AppColors.neutralBlack
-                                                    : AppColors.neutralMediumGray,
+                                                    : AppColors
+                                                          .neutralMediumGray,
                                                 fontWeight: FontWeight.normal,
                                               ),
                                             ),
                                             Icon(
                                               Icons.access_time,
-                                              color: AppColors.neutralMediumGray,
+                                              color:
+                                                  AppColors.neutralMediumGray,
                                               size: 20,
                                             ),
                                           ],
@@ -1269,7 +1301,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                     ),
                                     const SizedBox(height: 10),
                                     GestureDetector(
-                                      onTap: () => _selectDate(context, modalSetState),
+                                      onTap: () =>
+                                          _selectDate(context, modalSetState),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 15,
@@ -1277,28 +1310,34 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: AppColors.neutralWhite,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
                                             color: AppColors.neutralMediumGray,
                                             width: 1.5,
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
                                               _formatDate(_selectedCustomDate),
                                               style: GoogleFonts.poppins(
                                                 fontSize: 14,
-                                                color: _selectedCustomDate == null
-                                                    ? AppColors.neutralMediumGray
+                                                color:
+                                                    _selectedCustomDate == null
+                                                    ? AppColors
+                                                          .neutralMediumGray
                                                     : AppColors.neutralBlack,
                                                 fontWeight: FontWeight.normal,
                                               ),
                                             ),
                                             Icon(
                                               Icons.calendar_today,
-                                              color: AppColors.neutralMediumGray,
+                                              color:
+                                                  AppColors.neutralMediumGray,
                                               size: 20,
                                             ),
                                           ],
@@ -1317,15 +1356,22 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                     const SizedBox(height: 10),
                                     GestureDetector(
                                       onTap: () async {
-                                        TimeOfDay? picked = await showTimePicker(
+                                        TimeOfDay?
+                                        picked = await showTimePicker(
                                           context: context,
-                                          initialTime: _preferredTime ?? TimeOfDay.now(),
-                                          builder: (BuildContext context, Widget? child) {
-                                            return Theme(
-                                              data: _buildEnhancedTimePickerTheme(),
-                                              child: child!,
-                                            );
-                                          },
+                                          initialTime:
+                                              _preferredTime ?? TimeOfDay.now(),
+                                          builder:
+                                              (
+                                                BuildContext context,
+                                                Widget? child,
+                                              ) {
+                                                return Theme(
+                                                  data:
+                                                      _buildEnhancedTimePickerTheme(),
+                                                  child: child!,
+                                                );
+                                              },
                                         );
                                         if (picked != null) {
                                           modalSetState(() {
@@ -1342,30 +1388,37 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                         ),
                                         decoration: BoxDecoration(
                                           color: AppColors.neutralWhite,
-                                          borderRadius: BorderRadius.circular(12),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                           border: Border.all(
                                             color: AppColors.neutralMediumGray,
                                             width: 1.5,
                                           ),
                                         ),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
                                               _preferredTime != null
-                                                  ? _preferredTime!.format(context)
+                                                  ? _preferredTime!.format(
+                                                      context,
+                                                    )
                                                   : 'Select Time',
                                               style: GoogleFonts.poppins(
                                                 fontSize: 14,
                                                 color: _preferredTime != null
                                                     ? AppColors.neutralBlack
-                                                    : AppColors.neutralMediumGray,
+                                                    : AppColors
+                                                          .neutralMediumGray,
                                                 fontWeight: FontWeight.normal,
                                               ),
                                             ),
                                             Icon(
                                               Icons.access_time,
-                                              color: AppColors.neutralMediumGray,
+                                              color:
+                                                  AppColors.neutralMediumGray,
                                               size: 20,
                                             ),
                                           ],
@@ -1374,7 +1427,9 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                     ),
                                     if (timeSlotError)
                                       Padding(
-                                        padding: const EdgeInsets.only(top: 8.0),
+                                        padding: const EdgeInsets.only(
+                                          top: 8.0,
+                                        ),
                                         child: Text(
                                           _selectedCustomDate == null
                                               ? 'Please select a date and preferred time.'
@@ -1463,8 +1518,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
                                       _currentSelectedAllRounderTypes,
                                   currentBudget: _currentBudget,
                                   currentNumShifts: _currentNumShifts,
-                                  currentSelectedShiftTimes:
-                                      _selectedTimeSlots.toSet(),
+                                  currentSelectedShiftTimes: _selectedTimeSlots
+                                      .toSet(),
                                   currentServiceType: _currentServiceType,
                                   currentSelectedDays: <String>{}.toSet(),
                                   allRounderSubServiceData:

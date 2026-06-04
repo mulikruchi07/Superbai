@@ -6,6 +6,7 @@ import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/complaint_screen.dart';
 import 'package:superbai/bill_screen.dart';
 import 'package:superbai/account_screen.dart';
+import 'package:superbai/select_service_screen.dart';
 import 'dart:async';
 import 'dart:ui'; // Required for BackdropFilter
 import 'package:superbai/maid_linking_screen.dart';
@@ -973,23 +974,14 @@ class _BookingScreenState extends State<BookingScreen>
 
                 return GestureDetector(
                   onTap: () {
-                    // setState(() {
-                    //   _selectedServiceTitle = service['name']!;
-
-                    //   _currentAllRounderServiceIndex = 0;
-                    //   _allRounderSelectedSubServices.clear();
-                    //   _allRounderSubServiceData.clear();
-
-                    //   _currentServiceType = 'Daily';
-                    //   _currentNumShifts = 0;
-                    //   _selectedTimeSlots.clear();
-                    //   _selectedCustomDate = null;
-                    // });
-
-                    // _showServiceDetailsSheet(
-                    //   context,
-                    //   service['name']!,
-                    // );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SelectServiceScreen(
+                          initialServiceTitle: service['name']!,
+                        ),
+                      ),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.all(15),
