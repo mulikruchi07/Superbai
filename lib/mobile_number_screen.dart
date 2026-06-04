@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:superbai/theme.dart';
 import 'dart:async'; // Required for Timer
-import 'package:superbai/user_details_screen.dart'; // Import the existing user details screen
 import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:superbai/user_details_screen.dart'; // Import Firebase Auth
 
 // Enum to manage the state of the MobileNumberScreen
 enum MobileScreenState { mobileInput, otpInput }
@@ -18,9 +17,6 @@ class MobileNumberScreen extends StatefulWidget {
 
 class _MobileNumberScreenState extends State<MobileNumberScreen>
     with TickerProviderStateMixin {
-  static const String _debugBypassOtp = '123456';
-  static const String _debugBypassVerificationId = 'debug-bypass';
-
   MobileScreenState _currentState = MobileScreenState.mobileInput;
 
   // --- Firebase and Auth State ---
@@ -28,6 +24,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
   String? _verificationId; // To store the verification ID from Firebase
   bool _isLoading = false; // To show a loading indicator on buttons
   bool _isOtpInvalid = false; // NEW: To track OTP error state
+  String? _phoneAuthError; // Shown when OTP request fails
 
   // Onboarding/Slider related
   late AnimationController _onboardingFadeController;
@@ -59,10 +56,8 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
   final FocusNode _mobileNumberFocusNode = FocusNode();
 
   // OTP Input related
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
+  final List<TextEditingController> _otpControllers =
+      List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
   String _maskedMobileNumber = ''; // To show in OTP screen
 
@@ -79,9 +74,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
       vsync: this,
     )..forward();
 
-    _onboardingTimer = Timer.periodic(const Duration(seconds: 3), (
-      Timer timer,
-    ) {
+    _onboardingTimer = Timer.periodic(const Duration(seconds: 3), (Timer timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -99,8 +92,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
       // Listener to move focus forward automatically
       _otpControllers[i].addListener(() {
         if (!mounted) return;
-        if (_otpControllers[i].text.length == 1 &&
-            i < _otpControllers.length - 1) {
+        if (_otpControllers[i].text.length == 1 && i < _otpControllers.length - 1) {
           FocusScope.of(context).requestFocus(_otpFocusNodes[i + 1]);
         }
         if (_otpControllers.every((controller) => controller.text.isNotEmpty)) {
@@ -121,53 +113,92 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
 
   // --- Firebase Phone Auth Logic ---
 
+  String _authErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-phone-number':
+        return 'Invalid phone number. Enter a 10-digit Indian mobile number.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again.';
+      case 'quota-exceeded':
+        return 'SMS quota exceeded. Try again later or use a test number in Firebase Console.';
+      case 'app-not-authorized':
+        return 'App not authorized for phone auth. Add SHA-1/SHA-256 in Firebase Console for this Android app.';
+      case 'captcha-check-failed':
+        return 'Verification check failed. Try again.';
+      case 'missing-phone-number':
+        return 'Enter a valid 10-digit mobile number.';
+      default:
+        return e.message ?? 'Could not send OTP (${e.code}).';
+    }
+  }
+
+  void _goToOtpInput() {
+    setState(() {
+      _maskedMobileNumber =
+          '+91 | ${_mobileNumberController.text.substring(0, 5)} *****';
+      _currentState = MobileScreenState.otpInput;
+      _isLoading = false;
+      _isOtpInvalid = false;
+      _phoneAuthError = null;
+    });
+  }
+
   Future<void> _requestOtp() async {
     FocusScope.of(context).unfocus();
-    if (_mobileNumberController.text.length != 10) {
-      // You can add an inline error for mobile number too if you wish
-      return;
-    }
-
-    if (kDebugMode) {
+    final digitsOnly =
+        _mobileNumberController.text.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length != 10) {
       setState(() {
-        _verificationId = _debugBypassVerificationId;
-        _maskedMobileNumber =
-            '+91 | ${_mobileNumberController.text.substring(0, 5)} *****';
-        _currentState = MobileScreenState.otpInput;
-        _isLoading = false;
-        _isOtpInvalid = false;
+        _phoneAuthError = 'Enter a valid 10-digit mobile number.';
       });
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _phoneAuthError = null;
+    });
 
-    await _auth.verifyPhoneNumber(
-      phoneNumber: '+91${_mobileNumberController.text}',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await _signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        // Can also add inline error handling here
-        setState(() => _isLoading = false);
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-          _maskedMobileNumber =
-              '+91 | ${_mobileNumberController.text.substring(0, 5)} *****';
-          _currentState = MobileScreenState.otpInput;
-          _isLoading = false;
-          _isOtpInvalid = false; // Reset error state on new OTP request
-        });
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        setState(() {
-          _verificationId = verificationId;
-        });
-      },
-      timeout: const Duration(seconds: 60),
-    );
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: '+91$digitsOnly',
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          await _signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          debugPrint('Phone auth failed: ${e.code} ${e.message}');
+          if (!mounted) return;
+          final message = _authErrorMessage(e);
+          setState(() {
+            _isLoading = false;
+            _phoneAuthError = message;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          if (!mounted) return;
+          setState(() {
+            _verificationId = verificationId;
+          });
+          _goToOtpInput();
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          if (!mounted) return;
+          setState(() {
+            _verificationId = verificationId;
+          });
+        },
+        timeout: const Duration(seconds: 60),
+      );
+    } on Exception {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _phoneAuthError = 'Could not send OTP. Check internet and Firebase setup.';
+      });
+    }
   }
 
   Future<void> _verifyOtp() async {
@@ -176,21 +207,6 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
 
     final enteredOtp = _otpControllers.map((c) => c.text).join();
     if (enteredOtp.length != 6) return;
-
-    if (kDebugMode && _verificationId == _debugBypassVerificationId) {
-      if (enteredOtp == _debugBypassOtp) {
-        _continueAfterAuth();
-      } else {
-        setState(() {
-          _isOtpInvalid = true;
-          for (var controller in _otpControllers) {
-            controller.clear();
-          }
-        });
-        FocusScope.of(context).requestFocus(_otpFocusNodes[0]);
-      }
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -203,7 +219,6 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
     } on FirebaseAuthException catch (e) {
       // NEW: Handle invalid OTP error inline
       if (e.code == 'invalid-verification-code') {
-        if (!mounted) return;
         setState(() {
           _isOtpInvalid = true; // Set error state to true
           _isLoading = false;
@@ -267,7 +282,9 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                 bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -280,10 +297,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 500),
                             transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                ),
+                                FadeTransition(opacity: animation, child: child),
                             child: Image.asset(
                               _onboardingPages[_currentPage]['image']!,
                               key: ValueKey(_currentPage),
@@ -323,9 +337,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                           width: 8.0,
                           height: 8.0,
                           margin: const EdgeInsets.symmetric(
-                            vertical: 10.0,
-                            horizontal: 4.0,
-                          ),
+                              vertical: 10.0, horizontal: 4.0),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: _currentPage == index
@@ -373,10 +385,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'Mobile Number',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
+          Text('Mobile Number', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           TextField(
             controller: _mobileNumberController,
@@ -388,19 +397,26 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
               counterText: "",
               filled: true,
               fillColor: AppColors.neutralWhite,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide.none,
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.0), borderSide: BorderSide.none),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide(
-                  color: AppColors.primaryPurple,
-                  width: 2.0,
-                ),
+                borderSide: BorderSide(color: AppColors.primaryPurple, width: 2.0),
               ),
             ),
+            onChanged: (_) {
+              if (_phoneAuthError != null) {
+                setState(() => _phoneAuthError = null);
+              }
+            },
           ),
+          if (_phoneAuthError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(
+                _phoneAuthError!,
+                style: GoogleFonts.poppins(color: Colors.red, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 30),
           SizedBox(
             width: double.infinity,
@@ -409,9 +425,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryPurple,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25.0)),
               ),
               child: _isLoading
                   ? const SizedBox(
@@ -425,19 +439,9 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'CONTINUE',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Text('CONTINUE', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w500)),
                         const SizedBox(width: 10),
-                        const Icon(
-                          Icons.arrow_forward,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
                       ],
                     ),
             ),
@@ -454,10 +458,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'Enter OTP',
-            style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-          ),
+          Text('Enter OTP', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -470,10 +471,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   maxLength: 1,
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
                   decoration: InputDecoration(
                     counterText: "",
                     filled: true,
@@ -482,18 +480,14 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
                       borderSide: BorderSide(
-                        color: _isOtpInvalid
-                            ? Colors.red
-                            : AppColors.neutralMediumGray,
+                        color: _isOtpInvalid ? Colors.red : AppColors.neutralMediumGray,
                         width: 1.0,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.0),
                       borderSide: BorderSide(
-                        color: _isOtpInvalid
-                            ? Colors.red
-                            : AppColors.primaryPurple,
+                        color: _isOtpInvalid ? Colors.red : AppColors.primaryPurple,
                         width: 2.0,
                       ),
                     ),
@@ -522,10 +516,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
               GestureDetector(
                 onTap: _isLoading ? null : _requestOtp, // Resend OTP
                 // UPDATED: Font weight removed
-                child: Text(
-                  'Resend OTP',
-                  style: GoogleFonts.poppins(color: AppColors.primaryPurple),
-                ),
+                child: Text('Resend OTP', style: GoogleFonts.poppins(color: AppColors.primaryPurple)),
               ),
             ],
           ),
@@ -538,14 +529,8 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'OTP sent to the Number',
-                        style: GoogleFonts.poppins(),
-                      ),
-                      Text(
-                        _maskedMobileNumber,
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-                      ),
+                      Text('OTP sent to the Number', style: GoogleFonts.poppins()),
+                      Text(_maskedMobileNumber, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -559,10 +544,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                     });
                   },
                   // UPDATED: Font weight removed
-                  child: Text(
-                    'Change Number',
-                    style: GoogleFonts.poppins(color: AppColors.primaryPink),
-                  ),
+                  child: Text('Change Number', style: GoogleFonts.poppins(color: AppColors.primaryPink)),
                 ),
               ],
             ),
@@ -575,9 +557,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryPurple,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25.0),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25.0)),
               ),
               child: _isLoading
                   ? const SizedBox(
@@ -591,19 +571,9 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'CONTINUE',
-                          style: GoogleFonts.poppins(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        Text('CONTINUE', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w500)),
                         const SizedBox(width: 10),
-                        const Icon(
-                          Icons.arrow_forward,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
                       ],
                     ),
             ),

@@ -51,28 +51,27 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: '"REPLACE_WITH_YOUR_KEY"',
-    appId: '"REPLACE_WITH_YOUR_ID"',
-    messagingSenderId: '350617376160',
-    projectId: 'superbai-app',
-    storageBucket: 'superbai-app.firebasestorage.app',
+    apiKey: 'AIzaSyBJxWqMd7HfPpvki9TlbjajvLOpp8wGm0w',
+    appId: '1:615905251954:android:e7844b86baa467a0dc68eb',
+    messagingSenderId: '615905251954',
+    projectId: 'superbai-81bc6',
+    storageBucket: 'superbai-81bc6.appspot.com',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: '"REPLACE_WITH_YOUR_KEY"',
-    appId: '"REPLACE_WITH_YOUR_ID"',
-    messagingSenderId: '350617376160',
-    projectId: 'superbai-app',
-    storageBucket: 'superbai-app.firebasestorage.app',
+    apiKey: 'AIzaSyCgGFc09W5GnkqmtvLDUEwlA5X0hrMMFKs',
+    appId: '1:615905251954:ios:8d72eb7edb3a99e9dc68eb',
+    messagingSenderId: '615905251954',
+    projectId: 'superbai-81bc6',
+    storageBucket: 'superbai-81bc6.appspot.com',
     iosBundleId: 'com.example.superbai',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: '"REPLACE_WITH_YOUR_KEY"',
-    appId: '"REPLACE_WITH_YOUR_ID"',
-    messagingSenderId: '350617376160',
-    projectId: 'superbai-app',
-    storageBucket: 'superbai-app.firebasestorage.app',
+    apiKey: 'AIzaSyCgGFc09W5GnkqmtvLDUEwlA5X0hrMMFKs',
+    appId: '1:615905251954:ios:8d72eb7edb3a99e9dc68eb',
+    messagingSenderId: '615905251954',
+    projectId: 'superbai-81bc6',
+    storageBucket: 'superbai-81bc6.appspot.com',
     iosBundleId: 'com.example.superbai',
   );
 

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "350617376160",
-    "project_id": "superbai-app",
-    "storage_bucket": "superbai-app.firebasestorage.app"
+    "project_number": "615905251954",
+    "project_id": "superbai-81bc6",
+    "storage_bucket": "superbai-81bc6.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:350617376160:android:191fc8748630f9f43280c5",
+        "mobilesdk_app_id": "1:615905251954:android:e7844b86baa467a0dc68eb",
         "android_client_info": {
           "package_name": "com.example.superbai"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCPptgp2kV0MADJOVoYdAxpdQguFl-5euw"
+          "current_key": "AIzaSyBJxWqMd7HfPpvki9TlbjajvLOpp8wGm0w"
         }
       ],
       "services": {
