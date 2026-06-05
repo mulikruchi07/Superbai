@@ -4,9 +4,7 @@ import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/account_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BillScreen extends StatefulWidget {
   const BillScreen({super.key});
@@ -16,205 +14,83 @@ class BillScreen extends StatefulWidget {
 }
 
 class _BillScreenState extends State<BillScreen> {
+  static const String _supportWhatsAppNumber = '919819293826';
+
+  static const Color _passPurple = Color(0xFF7B3FF2);
+  static const Color _passPink = Color(0xFFFF4DA6);
+  static const Color _passBackground = Color(0xFFF8F7FB);
+  static const Color _textMuted = Color(0xFF687280);
+  static const Color _textDark = Color(0xFF1F1235);
+  static const Color _lightPink = Color(0xFFFFE6F1);
+  static const Color _lightPurple = Color(0xFFEDE8FF);
+
   int _selectedNavbarIndex = 2;
-  List<Map<String, dynamic>> _bills = [];
-  bool _isLoading = true;
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchBills();
-  }
-
-  Future<void> _fetchBills() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-    });
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      return;
-    }
+  Future<void> _openJoinPassWhatsApp() async {
+    const messageText =
+        'Hi SuperBai, I would like to join SuperBai Pass. Please help me get started.';
+    final message = Uri.encodeComponent(messageText);
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
+    );
 
     try {
-      final bookingSnapshot = await FirebaseFirestore.instance
-          .collection('FACT_BOOKINGS')
-          .where('UserID', isEqualTo: user.uid)
-          .get();
-
-      if (bookingSnapshot.docs.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-        return;
-      }
-
-      List<Map<String, dynamic>> fetchedBills = [];
-      for (var bookingDoc in bookingSnapshot.docs) {
-        final bookingData = bookingDoc.data();
-
-        // **FIX**: Add checks for null IDs and status to prevent crashes.
-        if (bookingData['Status'] == 'Cancelled' ||
-            bookingData['Status'] == 'Backup Requested' ||
-            bookingData['ServiceID'] == null ||
-            bookingData['SalaryID'] == null ||
-            bookingData['TimeSlotID'] == null ||
-            bookingData['BookingDate'] == null) {
-          continue; // Skip invalid or irrelevant bookings
-        }
-
-        final serviceDoc = await FirebaseFirestore.instance
-            .collection('DIM_SERVICES')
-            .doc(bookingData['ServiceID'])
-            .get();
-        final salaryDoc = await FirebaseFirestore.instance
-            .collection('DIM_SALARY')
-            .doc(bookingData['SalaryID'])
-            .get();
-        final timeSlotDoc = await FirebaseFirestore.instance
-            .collection('DIM_TIME_SLOTS')
-            .doc(bookingData['TimeSlotID'])
-            .get();
-
-        // **FIX**: Safely handle potentially null Timestamp.
-        final paymentTimestamp = salaryDoc.data()?['PaymentDate'] as Timestamp?;
-        final paymentDate = paymentTimestamp?.toDate() ?? DateTime.now();
-
-        final bookingTimestamp = bookingData['BookingDate'] as Timestamp;
-
-        final serviceEndTime = _getServiceEndTime(
-          bookingTimestamp.toDate(),
-          timeSlotDoc.data(),
-        );
-        final dueDate = serviceEndTime.subtract(const Duration(hours: 1));
-
-        fetchedBills.add({
-          'amount': salaryDoc.data()?['Amount'] ?? 0.0,
-          'serviceName': serviceDoc.data()?['ServiceName'] ?? 'N/A',
-          'maidName': 'Rani Obey', // Placeholder
-          'maidId': '3545', // Placeholder
-          'billMonth': DateFormat('MMM yyyy').format(paymentDate),
-          'dueDate': dueDate,
-          'dueDateString': _getDueDateString(dueDate),
-        });
-      }
-
-      fetchedBills.sort((a, b) {
-        final dueDateA = a['dueDate'] as DateTime;
-        final dueDateB = b['dueDate'] as DateTime;
-        final now = DateTime.now();
-
-        final isAOverdue = dueDateA.isBefore(now);
-        final isBOverdue = dueDateB.isBefore(now);
-
-        if (isAOverdue && !isBOverdue) {
-          return -1;
-        } else if (!isAOverdue && isBOverdue) {
-          return 1;
-        } else {
-          return dueDateA.compareTo(dueDateB);
-        }
-      });
-
-      if (mounted) {
-        setState(() {
-          _bills = fetchedBills;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error fetching bills: $e");
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  DateTime _getServiceEndTime(
-    DateTime bookingDate,
-    Map<String, dynamic>? timeSlotData,
-  ) {
-    if (timeSlotData == null) return bookingDate;
-
-    final timeSlots = (timeSlotData['TimeSlots'] as String? ?? '').split(', ');
-    if (timeSlots.isEmpty || timeSlots.first.isEmpty) return bookingDate;
-
-    try {
-      final endTimeStr = timeSlots.last.split(' - ')[1];
-      int hour = int.parse(endTimeStr.split(':')[0]);
-      final minute = int.parse(endTimeStr.split(':')[1].split(' ')[0]);
-      if (endTimeStr.contains('PM') && hour != 12) {
-        hour += 12;
-      }
-      if (endTimeStr.contains('AM') && hour == 12) {
-        hour = 0;
-      }
-      return DateTime(
-        bookingDate.year,
-        bookingDate.month,
-        bookingDate.day,
-        hour,
-        minute,
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
       );
-    } catch (e) {
-      return bookingDate;
+      if (openedApp) return;
+
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
     }
   }
 
-  String _getDueDateString(DateTime dueDate) {
-    final now = DateTime.now();
-    final difference = dueDate.difference(now);
-
-    if (difference.isNegative) {
-      return 'Bill is overdue';
-    } else if (difference.inDays > 0) {
-      return 'Bill due in ${difference.inDays} days';
-    } else if (difference.inHours > 0) {
-      return 'Bill due in ${difference.inHours} hours';
-    } else {
-      return 'Bill due in ${difference.inMinutes} minutes';
-    }
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
-      appBar: AppBar(
-        backgroundColor: AppColors.primaryPurple,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Bills',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            color: AppColors.neutralWhite,
-            fontWeight: FontWeight.normal,
+      backgroundColor: _passBackground,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTopNav(),
+              _buildHeroSection(),
+              _buildSectionTitle('why superbai pass?'),
+              _buildFeatures(),
+              _buildSectionTitle('choose your plan', leadingEmoji: '🤍'),
+              _buildPlans(),
+              _buildJoinCta(),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
-        centerTitle: false,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _bills.isEmpty
-          ? Center(child: Text('No bills found.', style: GoogleFonts.poppins()))
-          : ListView.builder(
-              padding: const EdgeInsets.all(20.0),
-              itemCount: _bills.length,
-              itemBuilder: (context, index) {
-                return _BillCard(billData: _bills[index]);
-              },
-            ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: AppColors.neutralWhite,
         selectedItemColor: AppColors.primaryPurple,
@@ -288,155 +164,610 @@ class _BillScreenState extends State<BillScreen> {
       ),
     );
   }
-}
 
-class _BillCard extends StatelessWidget {
-  final Map<String, dynamic> billData;
-
-  const _BillCard({required this.billData});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTopNav() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Bill for ${billData['billMonth']}',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: AppColors.neutralBlack,
-              fontWeight: FontWeight.normal,
-            ),
-          ),
-          const SizedBox(height: 15),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(15.0),
-            decoration: BoxDecoration(
-              color: AppColors.primaryPurple.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20.0),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primaryPurple, AppColors.primaryPink],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.neutralMediumGray.withOpacity(0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        '₹ ${billData['amount'].toInt()}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 32,
-                          color: AppColors.neutralWhite,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Total Charge for Maid Service',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: AppColors.neutralWhite,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Pay Now clicked!')),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.neutralWhite,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            'PAY NOW',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              color: AppColors.neutralBlack,
-                              fontWeight: FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _passPurple,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Maid : ${billData['maidName']} (${billData['maidId']})',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: AppColors.neutralBlack,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                        Text(
-                          billData['billMonth'],
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: AppColors.neutralBlack,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'For ${billData['serviceName']}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppColors.neutralBlack,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      billData['dueDateString'],
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.red,
-                        fontWeight: FontWeight.normal,
-                      ),
-                    ),
-                  ],
+                child: const Icon(Icons.home, color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'superbai',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _passPurple,
+                ),
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE8E2F8)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified_user, size: 14, color: _passPurple),
+                const SizedBox(width: 5),
+                Text(
+                  'Trusted by 100+ families',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: _textDark,
+                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeroSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFF3EEFF), Color(0xFFFDF0F8), Color(0xFFFFF5F9)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [_passPink, _passPurple],
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '✦ join superbai pass',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Zero maid',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _textDark,
+                height: 1.3,
+              ),
+            ),
+            Text(
+              'household stress',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _passPurple,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'once you take',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _textDark,
+                height: 1.3,
+              ),
+            ),
+            Text(
+              'SuperBai Pass',
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: _passPink,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'We handle your maid needs, so you can focus on what truly matters.',
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: _textMuted,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildHeroBadgeChip(
+                    Icons.access_time,
+                    'Instant Support',
+                    "We're always here",
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildHeroBadgeChip(
+                    Icons.shield_outlined,
+                    'Trusted & Verified',
+                    'Maids from your area',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroBadgeChip(
+    IconData icon,
+    String title,
+    String subtitle,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _lightPurple,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 16, color: _passPurple),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: _textDark,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.poppins(
+                    fontSize: 10,
+                    color: _textMuted,
+                    height: 1.3,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, {String? leadingEmoji}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (leadingEmoji != null) ...[
+            Text(leadingEmoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+          ] else ...[
+            Text('✦', style: GoogleFonts.poppins(color: _passPurple)),
+            const SizedBox(width: 8),
+          ],
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: _passPurple,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('✦', style: GoogleFonts.poppins(color: _passPurple)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatures() {
+    final features = [
+      (
+        icon: Icons.verified_user_outlined,
+        bg: _lightPurple,
+        color: _passPurple,
+        title: 'Zero Maid Household Stress',
+        desc: 'Once you take Superbai Pass, consider maid stress – gone.',
+      ),
+      (
+        icon: Icons.calendar_month_outlined,
+        bg: _lightPink,
+        color: _passPink,
+        title: "3 Free Substitute Services on Maids' Holiday",
+        desc:
+            'Get up to 3 free substitute services every month when your maid is on leave.',
+      ),
+      (
+        icon: Icons.access_time,
+        bg: _lightPink,
+        color: _passPink,
+        title: 'Flexible Service Time',
+        desc: "Change your maid's service time as per your request and urgency.",
+      ),
+      (
+        icon: Icons.location_on_outlined,
+        bg: _lightPurple,
+        color: _passPurple,
+        title: 'Trusted Maids from Nearby Areas',
+        desc:
+            'Get trusted maids who are working in your neighbourhood, not unknown maids.',
+      ),
+      (
+        icon: Icons.support_agent_outlined,
+        bg: _lightPurple,
+        color: _passPurple,
+        title: 'Dedicated Support',
+        desc:
+            'To solve all your household maid stress after joining Superbai Pass.',
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: features.map((f) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: _passPurple.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: f.bg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(f.icon, color: f.color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        f.title,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _passPurple,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        f.desc,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: _textMuted,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: _textMuted, size: 18),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPlans() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _buildPlanCard(
+              labelColor: _passPurple,
+              name: 'essential',
+              nameColor: _passPink,
+              size: 'for 1 bhk, 2 bhk & 3 bhk',
+              price: '₹399',
+              houseGradient: const [Color(0xFFE8D8FF), Color(0xFFC9B8F8)],
+              houseIconColor: _passPurple,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildPlanCard(
+              labelColor: const Color(0xFF3B82F6),
+              name: 'premium',
+              nameColor: _passPurple,
+              size: 'for large 3 bhk, 4 bhk & above',
+              price: '₹699',
+              priceColor: _passPurple,
+              houseGradient: const [Color(0xFFD4E8FF), Color(0xFFA8CAFF)],
+              houseIconColor: const Color(0xFF3B82F6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlanCard({
+    required Color labelColor,
+    required String name,
+    required Color nameColor,
+    required String size,
+    required String price,
+    required List<Color> houseGradient,
+    required Color houseIconColor,
+    Color? priceColor,
+  }) {
+    const features = [
+      'up to 3 free substitute services / month',
+      'flexible service time changes',
+      'trusted maids from nearby areas',
+      'dedicated support',
+      'priority support',
+    ];
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _passPurple.withValues(alpha: 0.07),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                'superbai pass',
+                style: GoogleFonts.poppins(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: labelColor,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                name,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: nameColor,
+                ),
+              ),
+              Text(
+                size,
+                style: GoogleFonts.poppins(fontSize: 9, color: _textMuted),
+              ),
+              const SizedBox(height: 8),
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: price,
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: priceColor ?? _passPurple,
+                      ),
+                    ),
+                    TextSpan(
+                      text: '/month',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: _textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...features.map(
+                (f) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        margin: const EdgeInsets.only(top: 1),
+                        decoration: const BoxDecoration(
+                          color: _lightPink,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '✓',
+                            style: TextStyle(
+                              fontSize: 7,
+                              color: _passPink,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          f,
+                          style: GoogleFonts.poppins(
+                            fontSize: 9,
+                            color: _textMuted,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 16,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: houseGradient,
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.home_outlined, color: houseIconColor, size: 24),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildJoinCta() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openJoinPassWhatsApp,
+          borderRadius: BorderRadius.circular(16),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_passPurple, Color(0xFF9B59F5)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.chat,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'join superbai pass now',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'chat with us on whatsapp',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

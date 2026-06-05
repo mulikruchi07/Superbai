@@ -289,8 +289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final services =
-        ServiceCatalog.all.map((s) => s.toGridItem()).toList();
+    final services = ServiceCatalog.all;
 
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
@@ -374,13 +373,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 itemCount: services.length,
                 itemBuilder: (context, index) {
                   final service = services[index];
-                  return _buildServiceCard(context, service['name']!, () {
-                    _selectedServiceTitle = service['name']!;
-                    _currentAllRounderServiceIndex = 0;
-                    _allRounderSelectedSubServices.clear();
-                    _allRounderSubServiceData.clear();
-                    _showServiceDetailsSheet(context, service['name']!);
-                  }, imagePath: service['image']!);
+                  return _buildServiceCard(
+                    context,
+                    service.title,
+                    comingSoon: service.comingSoon,
+                    onTap: () {
+                      _selectedServiceTitle = service.title;
+                      _currentAllRounderServiceIndex = 0;
+                      _allRounderSelectedSubServices.clear();
+                      _allRounderSubServiceData.clear();
+                      _showServiceDetailsSheet(context, service.title);
+                    },
+                    imagePath: service.imageAsset,
+                  );
                 },
               ),
             ),
@@ -508,53 +513,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildServiceCard(
     BuildContext context,
-    String title,
-    VoidCallback onTap, {
+    String title, {
+    required VoidCallback onTap,
     required String imagePath,
+    bool comingSoon = false,
   }) {
     return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(15.0),
-        decoration: BoxDecoration(
-          color: AppColors.primaryLightPurple.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.neutralMediumGray.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+      onTap: comingSoon
+          ? () => _showMessage('$title is coming soon!')
+          : onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15.0),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLightPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.neutralMediumGray.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              imagePath,
-              height: 50,
-              width: 50,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(
-                  Icons.broken_image,
-                  size: 50,
-                  color: AppColors.neutralMediumGray,
-                );
-              },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Opacity(
+                  opacity: comingSoon ? 0.55 : 1,
+                  child: Image.asset(
+                    imagePath,
+                    height: 50,
+                    width: 50,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.broken_image,
+                        size: 50,
+                        color: AppColors.neutralMediumGray,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: comingSoon
+                        ? AppColors.neutralDarkGray
+                        : AppColors.neutralBlack,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
+          ),
+          if (comingSoon)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neutralMediumGray.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 10,
+                      color: AppColors.neutralWhite,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Soon',
+                      style: GoogleFonts.poppins(
+                        fontSize: 8,
+                        color: AppColors.neutralWhite,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

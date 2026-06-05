@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
-import 'package:superbai/request_success_screen.dart'; // Import the new request success screen
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:superbai/exceptions/maid_slot_unavailable_exception.dart';
-import 'package:superbai/repositories/appointment_repository.dart';
+import 'package:superbai/dashboard_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ConfirmationScreen extends StatefulWidget {
   // All the data that needs to be passed for confirmation
@@ -66,9 +64,10 @@ class ConfirmationScreen extends StatefulWidget {
 }
 
 class _ConfirmationScreenState extends State<ConfirmationScreen> {
+  static const String _supportWhatsAppNumber = '919819293826';
+
   late TextEditingController _addressController;
   bool _isCreatingBooking = false;
-  final AppointmentRepository _appointmentRepository = AppointmentRepository();
 
   @override
   void initState() {
@@ -89,61 +88,202 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
   Future<void> _createBooking() async {
     if (_isCreatingBooking) return;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null && kDebugMode) {
-      _openSuccessScreen();
-      return;
-    }
-
-    if (user == null) {
-      _showMessage('Please log in again before confirming requirements.');
-      return;
-    }
-
     setState(() => _isCreatingBooking = true);
 
     try {
-      await _appointmentRepository.createFromWizard(
-        authUser: user,
-        serviceTitle: widget.serviceTitle,
-        allRounderTypes: widget.currentSelectedAllRounderTypes,
-        areaOption: widget.currentSelectedAreaOption,
-        additionalServices: widget.currentSelectedAdditionalServices,
-        mealType: widget.currentSelectedMealType,
-        meals: widget.currentSelectedMeals,
-        cookingStyles: widget.currentSelectedCookingStyles,
-        peopleCount: widget.currentSelectedPeopleCount,
-        hasWashingMachine: widget.currentHasWashingMachine,
-        laundryAdditional: widget.currentSelectedLaundryAdditional,
-        typeOfCare: widget.currentSelectedTypeOfCare,
-        hoursOfCare: widget.currentSelectedHoursOfCare,
-        specialNeeds: widget.currentSelectedSpecialNeeds,
-        childAges: widget.currentSelectedChildAges,
-        numChildren: widget.currentNumChildren,
-        activities: widget.currentSelectedActivities,
-        allRounderSubServiceData: widget.allRounderSubServiceData,
-        budget: widget.currentBudget,
-        numShifts: widget.currentNumShifts,
-        shiftTimes: widget.currentSelectedShiftTimes,
-        wizardServiceType: widget.currentServiceType,
-        selectedDays: widget.currentSelectedDays,
-        remark: _addressController.text.trim(),
-        maidId: widget.maidId,
+      final message = _buildWhatsAppMessage();
+      await _openSupportWhatsApp(message);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        (Route<dynamic> route) => false,
       );
-
-      _openSuccessScreen();
-    } on MaidSlotUnavailableException catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      _showMessage(e.message);
-    } on StateError catch (e) {
-      if (!mounted) return;
-      _showMessage(e.message);
-    } catch (e) {
-      if (!mounted) return;
-      _showMessage('Could not confirm requirements. Please try again.');
+      _showMessage('Could not open WhatsApp.');
     } finally {
       if (mounted) {
         setState(() => _isCreatingBooking = false);
+      }
+    }
+  }
+
+  String _buildWhatsAppMessage() {
+    final lines = <String>[
+      'Hi SuperBai, I would like to book a service.',
+      '',
+      'Service: ${widget.serviceTitle}',
+    ];
+
+    void addLine(String label, String? value) {
+      if (value == null || value.isEmpty || value == 'N/A') return;
+      lines.add('$label: $value');
+    }
+
+    if (widget.serviceTitle == 'Cooking') {
+      addLine('Meals', widget.currentSelectedMeals.join(', '));
+      addLine('Type', widget.currentSelectedMealType);
+      addLine('Style', widget.currentSelectedCookingStyles.join(', '));
+      addLine('People', widget.currentSelectedPeopleCount.toString());
+    } else if (widget.serviceTitle == 'Cleaning') {
+      addLine('Area', widget.currentSelectedAreaOption);
+      addLine('Additional', widget.currentSelectedAdditionalServices.join(', '));
+    } else if (widget.serviceTitle == 'Laundry') {
+      addLine('People', widget.currentSelectedPeopleCount.toString());
+      addLine(
+        'Washing Machine',
+        widget.currentHasWashingMachine == true
+            ? 'Yes'
+            : (widget.currentHasWashingMachine == false ? 'No' : null),
+      );
+      addLine('Additional', widget.currentSelectedLaundryAdditional.join(', '));
+    } else if (widget.serviceTitle == 'Elder-care') {
+      addLine('Type of Care', widget.currentSelectedTypeOfCare.join(', '));
+      addLine('Hours of Care', widget.currentSelectedHoursOfCare);
+      addLine('Special Needs', widget.currentSelectedSpecialNeeds.join(', '));
+    } else if (widget.serviceTitle == 'Babysitter') {
+      addLine('No. of Children', widget.currentNumChildren.toString());
+      addLine('Child\'s Age', widget.currentSelectedChildAges.join(', '));
+      addLine('Activities', widget.currentSelectedActivities.join(', '));
+    } else if (widget.serviceTitle == 'All-rounder') {
+      addLine('Selected Types', widget.currentSelectedAllRounderTypes.join(', '));
+    }
+
+    addLine('Pricing', 'Rs. ${widget.currentBudget.toInt()}');
+    addLine('Service Type', widget.currentServiceType);
+    if (widget.currentServiceType == 'Daily') {
+      addLine('Time Slots', widget.currentSelectedShiftTimes.join(', '));
+    }
+    if (widget.currentServiceType == 'Custom') {
+      addLine('Date', widget.currentSelectedDays.join(', '));
+      addLine('Time Slots', widget.currentSelectedShiftTimes.join(', '));
+    }
+    addLine('Shifts per day', widget.currentNumShifts.toString());
+
+    if (widget.serviceTitle == 'All-rounder' &&
+        widget.allRounderSubServiceData != null) {
+      for (final entry in widget.allRounderSubServiceData!.entries) {
+        final subServiceTitle = entry.key;
+        final subServiceData = entry.value;
+        lines.add('');
+        lines.add('$subServiceTitle:');
+
+        if (subServiceTitle == 'Cleaning') {
+          addLine('  Area', subServiceData['currentSelectedAreaOption']);
+          addLine(
+            '  Additional',
+            (subServiceData['currentSelectedAdditionalServices'] as Set<String>)
+                .join(', '),
+          );
+        } else if (subServiceTitle == 'Cooking') {
+          addLine(
+            '  Meals',
+            (subServiceData['currentSelectedMeals'] as Set<String>).join(', '),
+          );
+          addLine('  Type', subServiceData['currentSelectedMealType']);
+          addLine(
+            '  Style',
+            (subServiceData['currentSelectedCookingStyles'] as Set<String>)
+                .join(', '),
+          );
+          addLine(
+            '  People',
+            subServiceData['currentSelectedPeopleCount'].toString(),
+          );
+        } else if (subServiceTitle == 'Laundry') {
+          addLine(
+            '  People',
+            subServiceData['currentSelectedPeopleCount'].toString(),
+          );
+          addLine(
+            '  Washing Machine',
+            subServiceData['currentHasWashingMachine'] == true
+                ? 'Yes'
+                : (subServiceData['currentHasWashingMachine'] == false
+                      ? 'No'
+                      : null),
+          );
+          addLine(
+            '  Additional',
+            (subServiceData['currentSelectedLaundryAdditional'] as Set<String>)
+                .join(', '),
+          );
+        } else if (subServiceTitle == 'Elder-care') {
+          addLine(
+            '  Type of Care',
+            (subServiceData['currentSelectedTypeOfCare'] as Set<String>)
+                .join(', '),
+          );
+          addLine('  Hours of Care', subServiceData['currentSelectedHoursOfCare']);
+          addLine(
+            '  Special Needs',
+            (subServiceData['currentSelectedSpecialNeeds'] as Set<String>)
+                .join(', '),
+          );
+        } else if (subServiceTitle == 'Babysitter') {
+          addLine(
+            '  No. of Children',
+            subServiceData['currentNumChildren'].toString(),
+          );
+          addLine(
+            '  Child\'s Age',
+            (subServiceData['currentSelectedChildAges'] as Set<String>)
+                .join(', '),
+          );
+          addLine(
+            '  Activities',
+            (subServiceData['currentSelectedActivities'] as Set<String>)
+                .join(', '),
+          );
+        }
+      }
+    }
+
+    addLine('Address', _addressController.text.trim());
+
+    if (widget.maidId != null && widget.maidId!.isNotEmpty) {
+      addLine('Maid ID', widget.maidId);
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user?.phoneNumber != null && user!.phoneNumber!.isNotEmpty) {
+      addLine('Contact', user.phoneNumber);
+    }
+
+    return lines.join('\n');
+  }
+
+  Future<void> _openSupportWhatsApp(String messageText) async {
+    final message = Uri.encodeComponent(messageText);
+    final appUri = Uri.parse(
+      'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
+    );
+    final webUri = Uri.parse(
+      'https://wa.me/$_supportWhatsAppNumber?text=$message',
+    );
+
+    try {
+      final openedApp = await launchUrl(
+        appUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (openedApp) return;
+
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final openedWeb = await launchUrl(
+        webUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!openedWeb && mounted) {
+        _showMessage('Could not open WhatsApp.');
       }
     }
   }
@@ -153,14 +293,6 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  void _openSuccessScreen() {
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const RequestSuccessScreen()),
-    );
   }
 
   @override
@@ -497,7 +629,7 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                         ),
                       )
                     : Text(
-                        'CONFIRM REQUIREMENTS',
+                        'BOOK VIA WHATSAPP',
                         style: GoogleFonts.poppins(
                           fontSize: AppTextStyles.buttonText.fontSize,
                           color: AppColors.neutralWhite,
