@@ -193,28 +193,58 @@ class _BillScreenState extends State<BillScreen> {
               ),
             ],
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE8E2F8)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.verified_user, size: 14, color: _passPurple),
-                const SizedBox(width: 5),
-                Text(
-                  'Trusted by 100+ families',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: _textDark,
-                  ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE8E2F8)),
                 ),
-              ],
-            ),
+                padding: const EdgeInsets.all(6),
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.local_fire_department,
+                      color: _passPurple,
+                      size: 18,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE8E2F8)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified_user, size: 14, color: _passPurple),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Trusted by 100+ families',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: _textDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -256,23 +286,62 @@ class _BillScreenState extends State<BillScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Zero maid',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: _textDark,
-                height: 1.3,
-              ),
-            ),
-            Text(
-              'household stress',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: _passPurple,
-                height: 1.3,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Zero maid',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: _textDark,
+                          height: 1.2,
+                        ),
+                      ),
+                      Text(
+                        'household stress',
+                        style: GoogleFonts.poppins(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: _passPurple,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _passPurple.withValues(alpha: 0.18),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.home_filled,
+                        color: _passPurple,
+                        size: 36,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             Text(
@@ -328,11 +397,7 @@ class _BillScreenState extends State<BillScreen> {
     );
   }
 
-  Widget _buildHeroBadgeChip(
-    IconData icon,
-    String title,
-    String subtitle,
-  ) {
+  Widget _buildHeroBadgeChip(IconData icon, String title, String subtitle) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -431,7 +496,8 @@ class _BillScreenState extends State<BillScreen> {
         bg: _lightPink,
         color: _passPink,
         title: 'Flexible Service Time',
-        desc: "Change your maid's service time as per your request and urgency.",
+        desc:
+            "Change your maid's service time as per your request and urgency.",
       ),
       (
         icon: Icons.location_on_outlined,
