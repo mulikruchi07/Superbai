@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -8,13 +9,14 @@ import 'package:superbai/account_screen.dart';
 import 'package:superbai/select_service_screen.dart';
 import 'dart:async';
 import 'dart:ui'; // Required for BackdropFilter
-import 'package:superbai/maid_linking_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:superbai/data/service_catalog.dart';
 import 'package:superbai/exceptions/maid_slot_unavailable_exception.dart';
 import 'package:superbai/repositories/appointment_repository.dart';
+import 'package:superbai/widgets/preferred_time_picker.dart';
+import 'package:superbai/data/whatsapp_messages.dart';
 
 class BookingScreen extends StatefulWidget {
   const BookingScreen({super.key});
@@ -30,7 +32,6 @@ class _BookingScreenState extends State<BookingScreen>
   late TabController _tabController;
   int _selectedNavbarIndex = 1;
   bool _isLoading = true; // Master loading state for initial fetch
-  String _loadingMessage = '';
   List<Map<String, String>> get services =>
       ServiceCatalog.all.map((s) => s.toGridItem()).toList();
 
@@ -78,7 +79,9 @@ class _BookingScreenState extends State<BookingScreen>
             setState(() => _isLoading = false);
           },
           onError: (error) {
-            debugPrint('Error fetching appointments: $error');
+            if (kDebugMode) {
+              debugPrint('Error fetching appointments: $error');
+            }
             if (mounted) setState(() => _isLoading = false);
           },
         );
@@ -229,17 +232,11 @@ class _BookingScreenState extends State<BookingScreen>
   }
 
   void _showLoading(String message) {
-    setState(() {
-      _isLoading = true;
-      _loadingMessage = message;
-    });
+    setState(() => _isLoading = true);
   }
 
   void _hideLoading() {
-    setState(() {
-      _isLoading = false;
-      _loadingMessage = '';
-    });
+    setState(() => _isLoading = false);
   }
 
   void _showCancelSuccessDialog() {
@@ -428,21 +425,21 @@ class _BookingScreenState extends State<BookingScreen>
     }
   }
 
-  Future<void> _launchFlexibilityWhatsApp() async {
-    await _openSupportWhatsApp('Hi SuperBai, I need help with Flexibility.');
+  Future<void> _launchFlexibilityWhatsApp(Map<String, dynamic> booking) async {
+    final bookingDateTime = _getBookingDateTime(booking);
+    final serviceDate = DateFormat('dd MMM yyyy').format(bookingDateTime);
+    final currentServiceTime = booking['timing'] as String?;
+
+    await _openSupportWhatsApp(
+      WhatsAppMessages.flexibility(
+        serviceDate: serviceDate,
+        currentServiceTime: currentServiceTime,
+      ),
+    );
   }
 
   Future<void> _launchComplaintWhatsApp(Map<String, dynamic> booking) async {
-    final parts = <String>['Hi SuperBai, I want to file a complaint.'];
-    final id = booking['id'] as String?;
-    final service = booking['service'] as String? ?? booking['name'] as String?;
-    if (id != null && id.isNotEmpty) {
-      parts.add('Booking ID: $id');
-    }
-    if (service != null && service.isNotEmpty) {
-      parts.add('Service: $service');
-    }
-    await _openSupportWhatsApp(parts.join(' '));
+    await _openSupportWhatsApp(WhatsAppMessages.complaint());
   }
 
   void _showMessage(String message) {
@@ -452,91 +449,18 @@ class _BookingScreenState extends State<BookingScreen>
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showReplaceDialog() {
-    String? selectedReason;
-    final reasons = ['Time issue', 'Price issue', 'Service issue', 'Other'];
+  Future<void> _launchReplaceWhatsApp(Map<String, dynamic> booking) async {
+    final maidName = (booking['name'] as String?)?.trim();
+    final service = booking['service'] as String?;
+    final timeSlot = booking['timing'] as String?;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: Text(
-            'Reason to Replace',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.normal,
-              fontSize: 16,
-              color: AppColors.neutralBlack,
-            ),
-          ),
-          content: DropdownButtonFormField<String>(
-            value: selectedReason,
-            hint: Text(
-              'Select a reason',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.normal,
-                fontSize: 14,
-              ),
-            ),
-            onChanged: (value) {
-              selectedReason = value;
-            },
-            items: reasons.map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.normal,
-                    fontSize: 14,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.normal,
-                  color: AppColors.primaryPurple,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                if (selectedReason != null) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(
-                'Next',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.normal,
-                  color: AppColors.primaryPurple,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    ).then((success) {
-      if (success == true) {
-        _showLoading('Assigning new maid...');
-        Future.delayed(const Duration(seconds: 2), () {
-          _hideLoading();
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MaidLinkingScreen(),
-              ),
-            );
-          }
-        });
-      }
-    });
+    await _openSupportWhatsApp(
+      WhatsAppMessages.replaceMaid(
+        maidName: maidName?.isNotEmpty == true ? maidName : null,
+        service: service?.isNotEmpty == true ? service : null,
+        timeSlot: timeSlot?.isNotEmpty == true ? timeSlot : null,
+      ),
+    );
   }
 
   void _showBackupMaidDialog(Map<String, dynamic> originalBooking) {
@@ -813,7 +737,12 @@ class _BookingScreenState extends State<BookingScreen>
           _isLoading && _activeBookings.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : _activeBookings.isEmpty
-              ? const Center(child: Text('No active bookings.'))
+              ? _buildEmptyBookingState(
+                  icon: Icons.event_available_outlined,
+                  title: 'No active bookings',
+                  subtitle:
+                      'Book a maid from Home and your upcoming schedule will appear here.',
+                )
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -835,7 +764,11 @@ class _BookingScreenState extends State<BookingScreen>
           _isLoading && _previousBookings.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : _previousBookings.isEmpty
-              ? const Center(child: Text('No previous bookings.'))
+              ? _buildEmptyBookingState(
+                  icon: Icons.history,
+                  title: 'No previous bookings',
+                  subtitle: 'Completed and past bookings will show up here.',
+                )
               : ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -945,10 +878,156 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
+  Widget _buildEmptyBookingState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: AppColors.neutralDarkGray),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.neutralBlack,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: AppColors.neutralDarkGray,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _maidInitial(String name) {
+    final trimmed = name.trim();
+    return trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
+  }
+
+  String _friendlyStatusLabel(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'soon':
+        return 'Starting soon';
+      case 'backup requested':
+        return 'Backup requested';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'completed':
+        return 'Completed';
+      default:
+        return status;
+    }
+  }
+
+  Widget _buildMaidAvatar(
+    String name, {
+    double radius = 28,
+    bool onLightBackground = false,
+  }) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: onLightBackground
+          ? AppColors.primaryPurple.withOpacity(0.1)
+          : AppColors.neutralWhite,
+      child: Text(
+        _maidInitial(name),
+        style: GoogleFonts.poppins(
+          fontSize: radius * 0.9,
+          fontWeight: FontWeight.w600,
+          color: AppColors.primaryPurple,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRatingRow(
+    double rating, {
+    Color? emptyStarColor,
+    double starSize = 14,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(5, (starIndex) {
+          return Icon(
+            Icons.star_rate_rounded,
+            color: starIndex < rating
+                ? AppColors.emotionYellow
+                : (emptyStarColor ?? AppColors.neutralMediumGray),
+            size: starSize,
+          );
+        }),
+        const SizedBox(width: 6),
+        Text(
+          rating.toStringAsFixed(1),
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: emptyStarColor ?? AppColors.neutralDarkGray,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBookingStatusBadge(String status) {
+    Color background;
+    Color textColor = AppColors.neutralWhite;
+
+    switch (status.trim().toLowerCase()) {
+      case 'backup requested':
+        background = AppColors.emotionOrangeRed;
+        break;
+      case 'cancelled':
+        background = AppColors.neutralDarkGray;
+        break;
+      case 'completed':
+        background = AppColors.emotionGreen;
+        break;
+      default:
+        background = AppColors.neutralWhite.withOpacity(0.22);
+        textColor = AppColors.neutralWhite;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        _friendlyStatusLabel(status),
+        style: GoogleFonts.poppins(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
   Widget _buildActiveBookingCard(Map<String, dynamic> booking) {
     bool isInstant = booking['BookingType'] == 'Instant';
     final bookingDateTime = _getBookingDateTime(booking);
     final dateString = DateFormat('dd MMM yyyy').format(bookingDateTime);
+    final maidName = (booking['name'] as String?)?.trim().isNotEmpty == true
+        ? booking['name'] as String
+        : 'Your helper';
+    final rating = booking['rating'] as double? ?? 4.0;
+    final status = (booking['Status'] as String?) ?? 'Starting soon';
+    final service = booking['service'] as String? ?? '—';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 15.0),
@@ -956,14 +1035,14 @@ class _BookingScreenState extends State<BookingScreen>
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(15.0),
+            padding: const EdgeInsets.all(16.0),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppColors.primaryPurple, AppColors.primaryPink],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.neutralMediumGray.withOpacity(0.3),
@@ -976,70 +1055,67 @@ class _BookingScreenState extends State<BookingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: AppColors.neutralWhite,
-                          backgroundImage: NetworkImage(
-                            'https://placehold.co/100x100/FFFFFF/5D4EFF?text=${(booking['name'] as String).isNotEmpty ? (booking['name'] as String)[0] : ''}',
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: List.generate(5, (starIndex) {
-                            return Icon(
-                              Icons.star_rate_rounded,
-                              color: starIndex < (booking['rating'] as double)
-                                  ? AppColors.emotionYellow
-                                  : AppColors.neutralWhite.withOpacity(0.5),
-                              size: 16,
-                            );
-                          }),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'ID: ${booking['maidId']}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            color: AppColors.neutralWhite,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 15),
+                    _buildMaidAvatar(maidName),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildDetailRowAligned('Name', booking['name']),
-                          _buildDetailRowAligned(
-                            'Service',
-                            booking['service'],
-                            isMultiLine: booking['service'].startsWith(
-                              'All-rounder',
+                          Text(
+                            maidName,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              color: AppColors.neutralWhite,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          _buildDetailRowAligned('Contact', booking['contact']),
-                          _buildDetailRowAligned('Salary', booking['salary']),
-                          _buildDetailRowAligned('Date', dateString),
-                          _buildDetailRowAligned(
-                            'Timing',
-                            booking['timing'],
-                            isMultiLine: true,
+                          const SizedBox(height: 4),
+                          _buildRatingRow(
+                            rating,
+                            emptyStarColor: AppColors.neutralWhite.withOpacity(
+                              0.45,
+                            ),
                           ),
-                          _buildDetailRowAligned(
-                            'Status',
-                            booking['Status'] ?? 'Loading...',
-                          ),
+                          const SizedBox(height: 8),
+                          _buildBookingStatusBadge(status),
                         ],
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.neutralWhite.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildDetailRowAligned(
+                        'Service',
+                        service,
+                        isMultiLine: service.startsWith('All-rounder'),
+                      ),
+                      _buildDetailRowAligned(
+                        'Contact',
+                        booking['contact'] as String? ?? '—',
+                      ),
+                      _buildDetailRowAligned(
+                        'Budget',
+                        booking['salary'] as String? ?? '—',
+                      ),
+                      _buildDetailRowAligned('Starts', dateString),
+                      _buildDetailRowAligned(
+                        'Timing',
+                        booking['timing'] as String? ?? '—',
+                        isMultiLine: true,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 15),
                 Wrap(
@@ -1056,12 +1132,12 @@ class _BookingScreenState extends State<BookingScreen>
                       _buildOutlineButton(
                         'Flexibility',
                         Icons.calendar_today_outlined,
-                        _launchFlexibilityWhatsApp,
+                        () => _launchFlexibilityWhatsApp(booking),
                       ),
                       _buildOutlineButton(
                         'Replace',
                         Icons.loop,
-                        _showReplaceDialog,
+                        () => _launchReplaceWhatsApp(booking),
                       ),
                     ],
                   ],
@@ -1141,72 +1217,83 @@ class _BookingScreenState extends State<BookingScreen>
 
   Widget _buildPreviousBookingCard(Map<String, dynamic> booking) {
     final serviceDate = _getBookingDateTime(booking);
-    final dateString = DateFormat('dd MMM yy').format(serviceDate);
-    final duration = booking['TimeType'] == 'Custom' ? 'One day' : 'One month';
+    final dateString = DateFormat('dd MMM yyyy').format(serviceDate);
+    final duration = booking['TimeType'] == 'Custom' ? 'One day' : 'Monthly';
+    final maidName = (booking['name'] as String?)?.trim().isNotEmpty == true
+        ? booking['name'] as String
+        : 'Your helper';
+    final rating = booking['rating'] as double? ?? 4.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: ListTile(
-        leading: CircleAvatar(
-          radius: 22,
-          backgroundColor: AppColors.secondaryPastelPurple,
-          backgroundImage: NetworkImage(
-            'https://placehold.co/80x80/${ColorHex(AppColors.secondaryPastelPurple).toHex().substring(3)}/${ColorHex(AppColors.primaryPurple).toHex().substring(3)}?text=${(booking['name'] as String).isNotEmpty ? (booking['name'] as String)[0] : ''}',
-          ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.neutralWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.neutralMediumGray),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text(
-              booking['name']!,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
+            _buildMaidAvatar(
+              maidName,
+              radius: 24,
+              onLightBackground: true,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    maidName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppColors.neutralBlack,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  _buildRatingRow(rating, starSize: 12),
+                  const SizedBox(height: 4),
+                  Text(
+                    booking['service'] as String? ?? '—',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppColors.neutralDarkGray,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(5, (starIndex) {
-                return Icon(
-                  Icons.star_rate_rounded,
-                  color: starIndex < (booking['rating'] as double)
-                      ? AppColors.emotionYellow
-                      : AppColors.neutralMediumGray,
-                  size: 12,
-                );
-              }),
-            ),
-            Text(
-              booking['service']!,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: AppColors.neutralDarkGray,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ],
-        ),
-        trailing: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              dateString,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: AppColors.neutralDarkGray,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-            Text(
-              duration,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                color: AppColors.neutralDarkGray,
-                fontWeight: FontWeight.normal,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  dateString,
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    color: AppColors.neutralDarkGray,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.neutralLightGray,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    duration,
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      color: AppColors.neutralDarkGray,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1419,33 +1506,16 @@ class __FlexibilityDialogState extends State<_FlexibilityDialog> {
           if (dateError) _buildErrorText('Please select a date'),
           const SizedBox(height: 10),
           _buildDateTimePicker(
-            label: fromTime == null ? 'From Time' : fromTime!.format(context),
+            label: fromTime == null
+                ? 'From Time'
+                : SuperbaiTimePicker.format(fromTime!),
             icon: Icons.access_time,
             hasError: fromTimeError,
             onTap: () async {
-              TimeOfDay? picked = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      textTheme: GoogleFonts.poppinsTextTheme(
-                        Theme.of(context).textTheme,
-                      ),
-                      timePickerTheme: TimePickerThemeData(
-                        hourMinuteTextStyle: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.normal,
-                        ),
-                        dayPeriodTextStyle: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
+              final picked = await SuperbaiTimePicker.show(
+                context,
+                initialTime: fromTime,
+                title: 'Select start time',
               );
               if (picked != null) {
                 setState(() => fromTime = picked);
@@ -1455,33 +1525,16 @@ class __FlexibilityDialogState extends State<_FlexibilityDialog> {
           if (fromTimeError) _buildErrorText('Please select a from time'),
           const SizedBox(height: 10),
           _buildDateTimePicker(
-            label: toTime == null ? 'To Time' : toTime!.format(context),
+            label: toTime == null
+                ? 'To Time'
+                : SuperbaiTimePicker.format(toTime!),
             icon: Icons.access_time,
             hasError: toTimeError,
             onTap: () async {
-              TimeOfDay? picked = await showTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      textTheme: GoogleFonts.poppinsTextTheme(
-                        Theme.of(context).textTheme,
-                      ),
-                      timePickerTheme: TimePickerThemeData(
-                        hourMinuteTextStyle: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.normal,
-                        ),
-                        dayPeriodTextStyle: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
+              final picked = await SuperbaiTimePicker.show(
+                context,
+                initialTime: toTime,
+                title: 'Select end time',
               );
               if (picked != null) {
                 setState(() => toTime = picked);

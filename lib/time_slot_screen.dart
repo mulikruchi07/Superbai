@@ -73,118 +73,158 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
     });
   }
 
-  // UPDATED: InputDecoration now accepts an error flag
-  InputDecoration _buildInputDecoration(
-    String hintText, {
-    bool hasError = false,
-  }) {
-    final Color borderColor = hasError
-        ? Colors.redAccent
-        : AppColors.neutralMediumGray;
-    final Color focusedBorderColor = hasError
-        ? Colors.redAccent
-        : AppColors.primaryPurple;
-
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: GoogleFonts.poppins(
-        color: AppColors.neutralMediumGray,
-        fontWeight: FontWeight.normal,
-        fontSize: 14,
-      ),
-      filled: true,
-      fillColor: AppColors.neutralWhite,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: borderColor, width: 1.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: borderColor, width: 1.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: focusedBorderColor, width: 2.0),
-      ),
-      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 15),
-    );
+  bool _isSlotTakenByOtherShift(int shiftIndex, String slot) {
+    for (int i = 0; i < _selectedShiftSlots.length; i++) {
+      if (i != shiftIndex && _selectedShiftSlots[i] == slot) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  Widget _buildTimeSlotDropdown(int index) {
-    final List<String> availableForThisDropdown = _availableTimeSlots.where((
-      slot,
-    ) {
-      bool isSelectedByOther = false;
-      for (int i = 0; i < _selectedShiftSlots.length; i++) {
-        if (i != index && _selectedShiftSlots[i] == slot) {
-          isSelectedByOther = true;
-          break;
-        }
-      }
-      return !isSelectedByOther;
-    }).toList();
+  Widget _buildTimeSlotSelector(int index) {
+    final hasError =
+        _showErrorBorder.length > index ? _showErrorBorder[index] : false;
+    final selectedSlot = _selectedShiftSlots.length > index
+        ? _selectedShiftSlots[index]
+        : null;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
+      padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Shift ${index + 1}',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.normal,
-              color: AppColors.neutralBlack,
-            ),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            // UPDATED: Pass the error flag to the decoration
-            decoration: _buildInputDecoration(
-              'Select a Time Slot',
-              hasError: _showErrorBorder.length > index
-                  ? _showErrorBorder[index]
-                  : false,
-            ),
-            value: _selectedShiftSlots.length > index
-                ? _selectedShiftSlots[index]
-                : null,
-            hint: Text(
-              'Select a Time Slot',
-              style: GoogleFonts.poppins(
-                color: AppColors.neutralMediumGray,
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
+          Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryPurple,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            isExpanded: true,
-            onChanged: (String? newValue) {
-              setState(() {
-                if (_selectedShiftSlots.length > index) {
-                  _selectedShiftSlots[index] = newValue;
-                  // NEW: If an error was shown, hide it on selection
-                  if (_showErrorBorder[index]) {
-                    _showErrorBorder[index] = false;
-                  }
-                }
-              });
-            },
-            items: availableForThisDropdown.map<DropdownMenuItem<String>>((
-              String value,
-            ) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(
-                  value,
+              const SizedBox(width: 10),
+              Text(
+                'Shift ${index + 1}',
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutralBlack,
+                ),
+              ),
+              if (selectedSlot != null) ...[
+                const Spacer(),
+                Text(
+                  selectedSlot,
                   style: GoogleFonts.poppins(
-                    color: AppColors.neutralBlack,
-                    fontWeight: FontWeight.normal,
-                    fontSize: 14,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryPurple,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: _availableTimeSlots.map((slot) {
+              final isSelected = selectedSlot == slot;
+              final isDisabled = _isSlotTakenByOtherShift(index, slot);
+
+              return Opacity(
+                opacity: isDisabled ? 0.4 : 1,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: isDisabled
+                        ? null
+                        : () {
+                            setState(() {
+                              if (_selectedShiftSlots.length > index) {
+                                _selectedShiftSlots[index] = slot;
+                                if (_showErrorBorder[index]) {
+                                  _showErrorBorder[index] = false;
+                                }
+                              }
+                            });
+                          },
+                    child: Ink(
+                      width: 148,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primaryPurple
+                            : AppColors.neutralLightGray,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: hasError && !isSelected
+                              ? AppColors.emotionOrangeRed
+                              : isSelected
+                              ? AppColors.primaryPurple
+                              : AppColors.neutralMediumGray,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            slot.split(' - ').first,
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected
+                                  ? AppColors.neutralWhite
+                                  : AppColors.neutralBlack,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'to ${slot.split(' - ').last}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: isSelected
+                                  ? AppColors.neutralWhite.withOpacity(0.85)
+                                  : AppColors.neutralDarkGray,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               );
             }).toList(),
           ),
+          if (hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Please select a time slot for shift ${index + 1}.',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppColors.emotionOrangeRed,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -234,11 +274,11 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Select your time-slot:',
+          'Choose time slots',
           style: GoogleFonts.poppins(
             fontSize: 18,
             color: AppColors.neutralWhite,
-            fontWeight: FontWeight.normal,
+            fontWeight: FontWeight.w500,
           ),
         ),
         centerTitle: false,
@@ -274,9 +314,17 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
               child: ListView(
                 padding: const EdgeInsets.only(top: 20.0),
                 children: [
+                  Text(
+                    'Pick one slot per shift. Each slot is a 1-hour window.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: AppColors.neutralDarkGray,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   ...List.generate(
                     _numberOfShifts,
-                    (index) => _buildTimeSlotDropdown(index),
+                    (index) => _buildTimeSlotSelector(index),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -370,7 +418,7 @@ class _TimeSlotScreenState extends State<TimeSlotScreen> {
                     ),
                   ),
                   child: Text(
-                    'CONFIRM TIME-SLOT',
+                    'CONFIRM TIME SLOTS',
                     style: GoogleFonts.poppins(
                       fontSize: AppTextStyles.buttonText.fontSize,
                       color: AppColors.neutralWhite,

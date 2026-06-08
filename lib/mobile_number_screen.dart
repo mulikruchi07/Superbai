@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:superbai/theme.dart';
 import 'dart:async'; // Required for Timer
@@ -33,19 +34,19 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
   int _currentPage = 0;
   final List<Map<String, String>> _onboardingPages = [
     {
-      'image': 'assets/image_cae9e2.png',
+      'image': 'assets/login1.jpeg',
       'title': 'WELCOME',
       'subtitle':
           '\"Experience Effortless Cleanliness at Your\nFingertips with Our Trusted App.\"',
     },
     {
-      'image': 'assets/image_cd33ff.png',
+      'image': 'assets/login2.jpeg',
       'title': 'BENEFITS',
       'subtitle':
           '\"Connect Your Maid, Collect Coupons,\nand Enjoy Exclusive Rewards!\"',
     },
     {
-      'image': 'assets/image_cbc3bb.png',
+      'image': 'assets/login3.jpeg',
       'title': 'MANAGE',
       'subtitle':
           '\"All-in-One Maid Management Simplified\n– Features, Tracking, and More!\"',
@@ -123,11 +124,14 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
       case 'quota-exceeded':
         return 'SMS quota exceeded. Try again later or use a test number in Firebase Console.';
       case 'app-not-authorized':
-        return 'App not authorized for phone auth. Add SHA-1/SHA-256 in Firebase Console for this Android app.';
+      case 'missing-app-identifier':
+        return 'Phone verification is not set up for this app build. Add your release SHA-1 and SHA-256 in Firebase Console, then reinstall the app.';
       case 'captcha-check-failed':
         return 'Verification check failed. Try again.';
       case 'missing-phone-number':
         return 'Enter a valid 10-digit mobile number.';
+      case 'network-request-failed':
+        return 'No internet connection. Check mobile data or Wi‑Fi and try again.';
       default:
         return e.message ?? 'Could not send OTP (${e.code}).';
     }
@@ -160,25 +164,51 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
       _phoneAuthError = null;
     });
 
+    var otpRequestHandled = false;
+
+    void finishOtpRequest({required bool success, String? errorMessage}) {
+      if (otpRequestHandled || !mounted) return;
+      otpRequestHandled = true;
+      if (!success && errorMessage != null) {
+        setState(() {
+          _isLoading = false;
+          _phoneAuthError = errorMessage;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    }
+
+    final watchdog = Timer(const Duration(seconds: 75), () {
+      finishOtpRequest(
+        success: false,
+        errorMessage:
+            'OTP request timed out. Check your internet connection and try again.',
+      );
+    });
+
     try {
       await _auth.verifyPhoneNumber(
         phoneNumber: '+91$digitsOnly',
         verificationCompleted: (PhoneAuthCredential credential) async {
+          watchdog.cancel();
+          otpRequestHandled = true;
           await _signInWithCredential(credential);
         },
         verificationFailed: (FirebaseAuthException e) {
-          debugPrint('Phone auth failed: ${e.code} ${e.message}');
-          if (!mounted) return;
-          final message = _authErrorMessage(e);
-          setState(() {
-            _isLoading = false;
-            _phoneAuthError = message;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
+          watchdog.cancel();
+          if (kDebugMode) {
+            debugPrint('Phone auth failed: ${e.code} ${e.message}');
+          }
+          finishOtpRequest(
+            success: false,
+            errorMessage: _authErrorMessage(e),
           );
         },
         codeSent: (String verificationId, int? resendToken) {
+          watchdog.cancel();
+          otpRequestHandled = true;
           if (!mounted) return;
           setState(() {
             _verificationId = verificationId;
@@ -194,11 +224,11 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
         timeout: const Duration(seconds: 60),
       );
     } on Exception {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _phoneAuthError = 'Could not send OTP. Check internet and Firebase setup.';
-      });
+      watchdog.cancel();
+      finishOtpRequest(
+        success: false,
+        errorMessage: 'Could not send OTP. Check internet and Firebase setup.',
+      );
     }
   }
 
@@ -307,16 +337,27 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
                     Column(
                       children: [
                         SizedBox(height: constraints.maxHeight * 0.05),
-                        SizedBox(
-                          height: constraints.maxHeight * 0.4,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 500),
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(opacity: animation, child: child),
-                            child: Image.asset(
-                              _onboardingPages[_currentPage]['image']!,
-                              key: ValueKey(_currentPage),
-                              fit: BoxFit.contain,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: AspectRatio(
+                            aspectRatio: 1,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 500),
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                              child: ClipRRect(
+                                key: ValueKey(_currentPage),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.asset(
+                                  _onboardingPages[_currentPage]['image']!,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
                           ),
                         ),

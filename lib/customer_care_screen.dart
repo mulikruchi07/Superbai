@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart';
-import 'package:superbai/account_screen.dart'; // For back navigation
-import 'package:package_info_plus/package_info_plus.dart'; // For app info, if needed for WhatsApp/Message
 import 'package:url_launcher/url_launcher.dart';
-import 'package:superbai/booking_screen.dart';
+import 'package:superbai/data/customer_care_faq.dart';
 // --- CustomerCareScreen Class ---
 class CustomerCareScreen extends StatefulWidget {
   const CustomerCareScreen({super.key});
@@ -16,7 +14,7 @@ class CustomerCareScreen extends StatefulWidget {
 class _CustomerCareScreenState extends State<CustomerCareScreen> {
   bool _showFloatingButtons =
       false; // State to manage visibility of additional buttons
-  static const String _supportWhatsAppNumber = '919876543210';
+  static const String _supportWhatsAppNumber = '919819293826';
   // Function to launch WhatsApp
   Future<void> _launchWhatsApp() async {
     final message = Uri.encodeComponent('Hi SuperBai');
@@ -56,7 +54,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
     //   context,
     // ).showSnackBar(const SnackBar(content: Text('Opening WhatsApp...')));
     // final Uri whatsappUri = Uri.parse(
-    //   'whatsapp://send?phone=+919876543210',
+    //   'whatsapp://send?phone=+919819293826',
     // ); // Replace with actual number
     // if (await canLaunchUrl(whatsappUri)) {
     //   await launchUrl(whatsappUri);
@@ -80,7 +78,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text('Opening Messages...')));
     final Uri smsUri = Uri.parse(
-      'sms:+919876543210?body=Hello',
+      'sms:+919819293826?body=Hello',
     ); // Replace with actual number
     if (await canLaunchUrl(smsUri)) {
       await launchUrl(smsUri);
@@ -97,7 +95,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
       context,
     ).showSnackBar(const SnackBar(content: Text('Calling...')));
     final Uri telUri = Uri.parse(
-      'tel:+919876543210',
+      'tel:+919819293826',
     ); // Replace with actual number
     if (await canLaunchUrl(telUri)) {
       await launchUrl(telUri);
@@ -210,6 +208,34 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
     );
   }
 
+  void _openFaqAnswer(CustomerCareFaqItem item) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => FAQAnswerScreen(
+          screenTitle: item.screenTitle,
+          contentText: item.answer,
+          showStillNeedHelp: _showStillNeedHelpSlider,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.ease;
+
+          final tween = Tween(
+            begin: begin,
+            end: end,
+          ).chain(CurveTween(curve: curve));
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   // Helper widget to build contact options within the slider
   Widget _buildContactOption({
     required Widget iconWidget, // Changed to accept a Widget for icon
@@ -276,320 +302,15 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader('Maid'),
-                _buildQuestionItem('What services do the maids offer?', () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          FAQAnswerScreen(
-                            screenTitle: 'Maid Services',
-                            contentText:
-                                'Our maids offer a variety of services including cleaning, cooking, laundry, elder-care, and babysitting. You can select specific services and customize them to your needs when booking.',
-                            showStillNeedHelp:
-                                _showStillNeedHelpSlider, // Pass the function
-                          ),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            const begin = Offset(1.0, 0.0); // Start from right
-                            const end = Offset.zero; // End at current position
-                            const curve = Curves.ease;
-
-                            var tween = Tween(
-                              begin: begin,
-                              end: end,
-                            ).chain(CurveTween(curve: curve));
-
-                            return SlideTransition(
-                              position: animation.drive(tween),
-                              child: child,
-                            );
-                          },
+                for (final section in CustomerCareFaq.sections) ...[
+                  _buildSectionHeader(section.title),
+                  for (final item in section.items)
+                    _buildQuestionItem(
+                      item.question,
+                      () => _openFaqAnswer(item),
                     ),
-                  );
-                }),
-                _buildQuestionItem(
-                  'How can I reschedule or cancel a booking?',
-                  () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            FAQAnswerScreen(
-                              screenTitle: 'Flexibility/Cancel Booking',
-                              contentText:
-                                  'To use Flexibility or cancel a booking, go to the "Booking" tab in the bottom navigation bar. Select the active booking you wish to change, and you will find options to "Flexibility" or "Cancel" the service.',
-                              showStillNeedHelp:
-                                  _showStillNeedHelpSlider, // Pass the function
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.ease;
-
-                              var tween = Tween(
-                                begin: begin,
-                                end: end,
-                              ).chain(CurveTween(curve: curve));
-
-                              return SlideTransition(
-                                position: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                ),
-
-                _buildSectionHeader('My booking'),
-                _buildQuestionItem('How can I modify an existing booking?', () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          FAQAnswerScreen(
-                            screenTitle: 'Modify Booking',
-                            contentText:
-                                'To modify an existing booking, navigate to the "Booking" tab. Under "Active Booking," tap on the booking you want to modify. You can then adjust details like timing or specific service requirements.',
-                            showStillNeedHelp:
-                                _showStillNeedHelpSlider, // Pass the function
-                          ),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            const begin = Offset(1.0, 0.0);
-                            const end = Offset.zero;
-                            const curve = Curves.ease;
-
-                            var tween = Tween(
-                              begin: begin,
-                              end: end,
-                            ).chain(CurveTween(curve: curve));
-
-                            return SlideTransition(
-                              position: animation.drive(tween),
-                              child: child,
-                            );
-                          },
-                    ),
-                  );
-                }),
-                _buildQuestionItem(
-                  'How can I track the progress of my maid?',
-                  () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Tracking feature not yet implemented.'),
-                      ),
-                    );
-                  },
-                ),
-
-                _buildSectionHeader('Payment'),
-                _buildQuestionItem('What is the payment process for maid ?', () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          FAQAnswerScreen(
-                            screenTitle: 'Payment Process',
-                            contentText:
-                                'Payments are processed securely through the app. You can pay via various methods including credit/debit cards and mobile wallets. Your bill will be generated monthly.',
-                            showStillNeedHelp:
-                                _showStillNeedHelpSlider, // Pass the function
-                          ),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            const begin = Offset(1.0, 0.0);
-                            const end = Offset.zero;
-                            const curve = Curves.ease;
-
-                            var tween = Tween(
-                              begin: begin,
-                              end: end,
-                            ).chain(CurveTween(curve: curve));
-
-                            return SlideTransition(
-                              position: animation.drive(tween),
-                              child: child,
-                            );
-                          },
-                    ),
-                  );
-                }),
-                _buildQuestionItem('Is my payment information secure?', () {
-                  Navigator.push(
-                    context,
-                    PageRouteBuilder(
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          FAQAnswerScreen(
-                            screenTitle: 'Payment Security',
-                            contentText:
-                                'Yes, your payment information is highly secure. We use industry-standard encryption and security protocols to protect your data. Your details are never shared with third parties.',
-                            showStillNeedHelp:
-                                _showStillNeedHelpSlider, // Pass the function
-                          ),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                            const begin = Offset(1.0, 0.0);
-                            const end = Offset.zero;
-                            const curve = Curves.ease;
-
-                            var tween = Tween(
-                              begin: begin,
-                              end: end,
-                            ).chain(CurveTween(curve: curve));
-
-                            return SlideTransition(
-                              position: animation.drive(tween),
-                              child: child,
-                            );
-                          },
-                    ),
-                  );
-                }),
-
-                _buildSectionHeader('Complaint'),
-                _buildQuestionItem(
-                  'I was charged incorrectly for my service.',
-                  () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            FAQAnswerScreen(
-                              screenTitle: 'Incorrect Charge Complaint',
-                              contentText:
-                                  'If you were charged incorrectly, tap "File a Complaint" under Account or on your booking card. This opens WhatsApp so you can describe the issue. Our team will review and assist you.',
-                              showStillNeedHelp:
-                                  _showStillNeedHelpSlider, // Pass the function
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.ease;
-
-                              var tween = Tween(
-                                begin: begin,
-                                end: end,
-                              ).chain(CurveTween(curve: curve));
-
-                              return SlideTransition(
-                                position: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                ),
-                _buildQuestionItem(
-                  'Not satisfied with the quality of the service.',
-                  () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            FAQAnswerScreen(
-                              screenTitle: 'Service Quality Complaint',
-                              contentText:
-                                  'If you are not satisfied with service quality, tap "File a Complaint" under Account or on your booking card. This opens WhatsApp so you can describe the issue. We will investigate and take appropriate action.',
-                              showStillNeedHelp:
-                                  _showStillNeedHelpSlider, // Pass the function
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.ease;
-
-                              var tween = Tween(
-                                begin: begin,
-                                end: end,
-                              ).chain(CurveTween(curve: curve));
-
-                              return SlideTransition(
-                                position: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                ),
-
-                _buildSectionHeader('Referrals'),
-                _buildQuestionItem(
-                  'How does the maid referral program work?',
-                  () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            FAQAnswerScreen(
-                              screenTitle: 'Referral Program',
-                              contentText:
-                                  'Our referral program allows you to earn rewards by inviting friends or referring maids to our platform. Once they complete their first service, you receive a bonus!',
-                              showStillNeedHelp:
-                                  _showStillNeedHelpSlider, // Pass the function
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.ease;
-
-                              var tween = Tween(
-                                begin: begin,
-                                end: end,
-                              ).chain(CurveTween(curve: curve));
-
-                              return SlideTransition(
-                                position: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                ),
-                _buildQuestionItem(
-                  'Benefits of referring maids through the app?',
-                  () {
-                    Navigator.push(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) =>
-                            FAQAnswerScreen(
-                              screenTitle: 'Referral Benefits',
-                              contentText:
-                                  'Benefits include cash bonuses, service discounts, and priority access to new features. It\'s a great way to save money and help others find reliable maid services.',
-                              showStillNeedHelp:
-                                  _showStillNeedHelpSlider, // Pass the function
-                            ),
-                        transitionsBuilder:
-                            (context, animation, secondaryAnimation, child) {
-                              const begin = Offset(1.0, 0.0);
-                              const end = Offset.zero;
-                              const curve = Curves.ease;
-
-                              var tween = Tween(
-                                begin: begin,
-                                end: end,
-                              ).chain(CurveTween(curve: curve));
-
-                              return SlideTransition(
-                                position: animation.drive(tween),
-                                child: child,
-                              );
-                            },
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20), // Adjusted spacing
+                ],
+                const SizedBox(height: 20),
               ],
             ),
           ),

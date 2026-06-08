@@ -4,6 +4,7 @@ import 'package:superbai/firestore/appointment_fields.dart';
 import 'package:superbai/firestore/phone_utils.dart';
 import 'package:superbai/firestore/user_fields.dart';
 import 'package:superbai/firestore/user_related_fields.dart';
+import 'package:superbai/data/terms_and_conditions.dart';
 import 'package:superbai/models/user_profile.dart';
 
 /// CRUD for production Firestore [UserFields.collection] documents.
@@ -234,6 +235,32 @@ class UserRepository {
       UserFields.image: null,
     }, SetOptions(merge: true));
     return ref;
+  }
+
+  /// Records customer acceptance or decline of Terms & Conditions.
+  Future<void> saveTermsResponse({
+    required User authUser,
+    required bool accepted,
+  }) async {
+    final ref = await resolveUserRef(authUser);
+    if (ref == null) {
+      throw StateError('User profile not found.');
+    }
+
+    if (accepted) {
+      await ref.set({
+        UserFields.termsAccepted: true,
+        UserFields.termsAcceptedAt: FieldValue.serverTimestamp(),
+        UserFields.termsDeclinedAt: FieldValue.delete(),
+        UserFields.termsVersion: TermsAndConditions.version,
+      }, SetOptions(merge: true));
+      return;
+    }
+
+    await ref.set({
+      UserFields.termsAccepted: false,
+      UserFields.termsDeclinedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> _migrateTestUserToUser({

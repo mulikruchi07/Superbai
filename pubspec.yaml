@@ -1,5 +1,5 @@
 name: superbai
-description: "A new Flutter project."
+description: "SuperBai — household workforce management and maid services."
 
 publish_to: 'none' 
 
@@ -35,9 +35,9 @@ flutter:
     - assets/logo.png
     - assets/superbai_text.PNG
     - assets/bottom_illustration.png 
-    - assets/image_cae9e2.png 
-    - assets/image_cd33ff.png 
-    - assets/image_cbc3bb.png
+    - assets/login1.jpeg
+    - assets/login2.jpeg
+    - assets/login3.jpeg
     - assets/dashboard_images/banner.png
     - assets/dashboard_images/cleaning_icon.png
     - assets/dashboard_images/cooking_icon.jpg

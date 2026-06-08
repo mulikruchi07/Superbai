@@ -2,7 +2,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/repositories/user_repository.dart';
-import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/services/auth_flow_service.dart';
 import 'package:superbai/theme.dart';
 
@@ -51,10 +50,10 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       final profile = await _userRepository.getProfileForAuthUser(authUser);
       if (profile != null && profile.shouldSkipProfileSetup) {
         if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          (route) => false,
-        );
+        final authFlow = AuthFlowService();
+        final nextScreen = await authFlow.destinationScreen();
+        if (!mounted) return;
+        authFlow.navigateReplace(context, nextScreen);
         return;
       }
       if (profile != null && mounted) {
@@ -145,7 +144,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => postProfileSetupScreen()),
+        MaterialPageRoute(builder: (_) => screenAfterProfileDetails()),
       );
     } catch (e) {
       if (!mounted) return;

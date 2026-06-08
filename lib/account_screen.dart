@@ -4,13 +4,12 @@ import 'package:superbai/theme.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/bill_screen.dart';
-import 'package:superbai/location_screen.dart';
 import 'package:superbai/customer_care_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:superbai/repositories/services_repository.dart';
+import 'package:superbai/models/user_profile.dart';
 import 'package:superbai/repositories/user_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'CouponScreen.dart';
+import 'package:superbai/data/whatsapp_messages.dart';
 import 'EditProfileScreen.dart';
 import 'ReferMaidScreen.dart';
 import 'TermsAndConditionsScreen.dart';
@@ -26,12 +25,11 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   int _selectedNavbarIndex = 3; // Default to 'Account' tab
   String _userName = 'Loading...';
-  List<String> _userServices = [];
+  String _userAddress = 'Loading address...';
   bool _isDeletingAccount = false;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final UserRepository _userRepository = UserRepository();
-  final ServicesRepository _servicesRepository = ServicesRepository();
-  static const String _supportWhatsAppNumber = '919876543210';
+  static const String _supportWhatsAppNumber = '919819293826';
 
   @override
   void initState() {
@@ -46,16 +44,15 @@ class _AccountScreenState extends State<AccountScreen> {
       try {
         final profile = await _userRepository.getProfileForAuthUser(user);
 
-        final services = await _servicesRepository.getUserServices(user);
-
         if (mounted) {
           setState(() {
             if (profile != null) {
               _userName = profile.name.isNotEmpty ? profile.name : 'No Name';
+              _userAddress = _formatUserAddress(profile);
             } else {
               _userName = 'No Name';
+              _userAddress = 'Address not added yet';
             }
-            _userServices = services;
           });
         }
       } catch (e) {
@@ -154,9 +151,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _openComplaintWhatsAppChat() async {
-    final message = Uri.encodeComponent(
-      'Hi SuperBai, I want to file a complaint.',
-    );
+    final message = Uri.encodeComponent(WhatsAppMessages.complaint());
     final appUri = Uri.parse(
       'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
     );
@@ -188,6 +183,17 @@ class _AccountScreenState extends State<AccountScreen> {
         _showMessage('Could not open WhatsApp.');
       }
     }
+  }
+
+  String _formatUserAddress(UserProfile profile) {
+    final parts = <String>[];
+    if (profile.building.trim().isNotEmpty) {
+      parts.add(profile.building.trim());
+    }
+    if (profile.pincode.trim().isNotEmpty) {
+      parts.add('Flat ${profile.pincode.trim()}');
+    }
+    return parts.isEmpty ? 'Address not added yet' : parts.join(', ');
   }
 
   void _showMessage(String message) {
@@ -245,58 +251,16 @@ class _AccountScreenState extends State<AccountScreen> {
                             fontWeight: FontWeight.normal,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.neutralWhite,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'My Points ',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: AppColors.primaryPink,
-                                  fontWeight: FontWeight.normal,
-                                ),
-                              ),
-                              Text(
-                                '350',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: AppColors.primaryPink,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Icon(
-                                Icons.monetization_on,
-                                size: 18,
-                                color: AppColors.emotionYellow,
-                              ),
-                            ],
+                        const SizedBox(height: 6),
+                        Text(
+                          'SuperBai member',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: AppColors.neutralWhite.withValues(
+                              alpha: 0.9,
+                            ),
                           ),
                         ),
-                        if (_userServices.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Services: ${_userServices.join(', ')}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppColors.neutralWhite.withValues(
-                                alpha: 0.9,
-                              ),
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                       ],
                     ),
                     const Spacer(),
@@ -335,23 +299,26 @@ class _AccountScreenState extends State<AccountScreen> {
                   _buildAccountOption(
                     icon: Icons.location_on_outlined,
                     text: 'My Address',
+                    subtitle: _userAddress,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const LocationScreen(),
+                          builder: (context) => const EditProfileScreen(),
                         ),
-                      );
+                      ).then((result) {
+                        if (result == true && mounted) {
+                          _fetchUserData();
+                        }
+                      });
                     },
                   ),
                   _buildAccountOption(
                     icon: Icons.redeem_outlined,
                     text: 'Coupons',
+                    subtitle: 'Coming soon',
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => CouponScreen()),
-                      );
+                      _showMessage('Coupons are coming soon.');
                     },
                   ),
                   _buildAccountOption(
@@ -395,15 +362,6 @@ class _AccountScreenState extends State<AccountScreen> {
                     icon: Icons.edit_note_outlined,
                     text: 'File a Complaint',
                     onTap: _openComplaintWhatsAppChat,
-                  ),
-                  _buildAccountOption(
-                    icon: Icons.settings_outlined,
-                    text: 'Settings',
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Settings clicked!')),
-                      );
-                    },
                   ),
                   _buildAccountOption(
                     icon: Icons.person_remove_outlined,
@@ -524,6 +482,7 @@ class _AccountScreenState extends State<AccountScreen> {
     required IconData icon,
     required String text,
     required VoidCallback onTap,
+    String? subtitle,
     Color? textColor,
     Color? iconColor,
     bool showArrow = true,
@@ -533,18 +492,36 @@ class _AccountScreenState extends State<AccountScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, size: 22, color: iconColor ?? AppColors.primaryPurple),
             const SizedBox(width: 15),
-            Text(
-              text,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: textColor ?? AppColors.primaryPurple,
-                fontWeight: FontWeight.normal,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: textColor ?? AppColors.primaryPurple,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: AppColors.neutralDarkGray,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const Spacer(),
             if (showArrow)
               Icon(
                 Icons.arrow_forward_ios,

@@ -33,7 +33,7 @@ class RequestSuccessScreen extends StatelessWidget {
                     color: AppColors.neutralLightGray,
                     child: Center(
                       child: Text(
-                        'Success Illustration Placeholder',
+                        'Your request has been submitted',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           color: AppColors.neutralDarkGray,
@@ -48,7 +48,7 @@ class RequestSuccessScreen extends StatelessWidget {
 
               // Main Success Message
               Text(
-                'Your Request is Generated Successfully!',
+                'Request Submitted Successfully!',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 18, // Slightly larger for emphasis
@@ -61,7 +61,7 @@ class RequestSuccessScreen extends StatelessWidget {
 
               // Sub-message
               Text(
-                '*Maid will be assigned to you shortly!',
+                'Our team will assign a maid and confirm your booking shortly.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14,

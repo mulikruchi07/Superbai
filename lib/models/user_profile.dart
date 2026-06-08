@@ -19,6 +19,10 @@ class UserProfile {
     this.services = const [],
     this.referrerName = '',
     this.referrerPhone = '',
+    this.termsAccepted,
+    this.termsAcceptedAt,
+    this.termsDeclinedAt,
+    this.termsVersion = '',
   });
 
   final String id;
@@ -37,6 +41,12 @@ class UserProfile {
   final List<String> services;
   final String referrerName;
   final String referrerPhone;
+  final bool? termsAccepted;
+  final DateTime? termsAcceptedAt;
+  final DateTime? termsDeclinedAt;
+  final String termsVersion;
+
+  bool get hasAcceptedTerms => termsAccepted == true;
 
   /// Full onboarding (name + address + flat) required for new signups.
   bool get isComplete =>
@@ -94,6 +104,10 @@ class UserProfile {
       image: data['imageURL'] as String?,
       referrerName: (data['referrerName'] as String?)?.trim() ?? '',
       referrerPhone: (data['referrerPhone'] as String?)?.trim() ?? '',
+      termsAccepted: data[UserFields.termsAccepted] as bool?,
+      termsAcceptedAt: _timestampToDateTime(data[UserFields.termsAcceptedAt]),
+      termsDeclinedAt: _timestampToDateTime(data[UserFields.termsDeclinedAt]),
+      termsVersion: (data[UserFields.termsVersion] as String?)?.trim() ?? '',
     );
   }
 
@@ -120,7 +134,16 @@ class UserProfile {
           : const [],
       referrerName: (data[UserFields.referrerName] as String?)?.trim() ?? '',
       referrerPhone: (data[UserFields.referrerPhone] as String?)?.trim() ?? '',
+      termsAccepted: data[UserFields.termsAccepted] as bool?,
+      termsAcceptedAt: _timestampToDateTime(data[UserFields.termsAcceptedAt]),
+      termsDeclinedAt: _timestampToDateTime(data[UserFields.termsDeclinedAt]),
+      termsVersion: (data[UserFields.termsVersion] as String?)?.trim() ?? '',
     );
+  }
+
+  static DateTime? _timestampToDateTime(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    return null;
   }
 
   Map<String, dynamic> toFirestoreMap() {
@@ -139,6 +162,8 @@ class UserProfile {
       UserFields.district: district,
       UserFields.region: region,
       UserFields.image: image,
+      if (termsAccepted != null) UserFields.termsAccepted: termsAccepted,
+      if (termsVersion.isNotEmpty) UserFields.termsVersion: termsVersion,
     };
   }
 }

@@ -2,7 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/mobile_number_screen.dart';
+import 'package:superbai/models/user_profile.dart';
 import 'package:superbai/repositories/user_repository.dart';
+import 'package:superbai/terms_conditions_screen.dart';
 import 'package:superbai/toggle_screen.dart';
 import 'package:superbai/user_details_screen.dart';
 
@@ -21,10 +23,7 @@ class AuthFlowService {
     }
 
     final profile = await _userRepository.getProfileForAuthUser(authUser);
-    if (profile != null && profile.shouldSkipProfileSetup) {
-      return const DashboardScreen();
-    }
-    return const UserDetailsScreen();
+    return _screenForProfile(profile);
   }
 
   /// After Firebase phone OTP succeeds.
@@ -32,16 +31,23 @@ class AuthFlowService {
     final existing = await _userRepository.getProfileForAuthUser(authUser);
     if (existing != null && existing.shouldSkipProfileSetup) {
       await _userRepository.markOtpVerified(authUser);
-      return const DashboardScreen();
+      return _screenForProfile(existing);
     }
 
     await _userRepository.markOtpVerified(authUser);
 
     final profile = await _userRepository.getProfileForAuthUser(authUser);
-    if (profile != null && profile.shouldSkipProfileSetup) {
-      return const DashboardScreen();
+    return _screenForProfile(profile);
+  }
+
+  Widget _screenForProfile(UserProfile? profile) {
+    if (profile == null || !profile.shouldSkipProfileSetup) {
+      return const UserDetailsScreen();
     }
-    return const UserDetailsScreen();
+    if (!profile.hasAcceptedTerms) {
+      return const TermsConditionsScreen();
+    }
+    return const DashboardScreen();
   }
 
   void navigateReplace(BuildContext context, Widget screen) {
@@ -52,5 +58,8 @@ class AuthFlowService {
   }
 }
 
-/// Post–profile-setup screen (maid question).
+/// After address / profile details are saved.
+Widget screenAfterProfileDetails() => const TermsConditionsScreen();
+
+/// Post–terms acceptance screen (maid question).
 Widget postProfileSetupScreen() => const ToggleScreen();

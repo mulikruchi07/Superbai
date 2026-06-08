@@ -18,4 +18,8 @@ class UserFields {
   static const services = 'services';
   static const referrerName = 'referrerName';
   static const referrerPhone = 'referrerPhone';
+  static const termsAccepted = 'termsAccepted';
+  static const termsAcceptedAt = 'termsAcceptedAt';
+  static const termsDeclinedAt = 'termsDeclinedAt';
+  static const termsVersion = 'termsVersion';
 }

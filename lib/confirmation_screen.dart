@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:superbai/dashboard_screen.dart';
+import 'package:superbai/repositories/user_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:superbai/data/whatsapp_messages.dart';
 
 class ConfirmationScreen extends StatefulWidget {
   // All the data that needs to be passed for confirmation
@@ -72,11 +74,27 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize with a placeholder address. In a real app, this would fetch from user details.
-    _addressController = TextEditingController(
-      text:
-          'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took',
-    );
+    _addressController = TextEditingController();
+    _loadUserAddress();
+  }
+
+  Future<void> _loadUserAddress() async {
+    final authUser = FirebaseAuth.instance.currentUser;
+    if (authUser == null) return;
+
+    final profile = await UserRepository().getProfileForAuthUser(authUser);
+    if (!mounted || profile == null) return;
+
+    final parts = <String>[];
+    if (profile.building.trim().isNotEmpty) {
+      parts.add(profile.building.trim());
+    }
+    if (profile.pincode.trim().isNotEmpty) {
+      parts.add('Flat ${profile.pincode.trim()}');
+    }
+    if (parts.isEmpty) return;
+
+    _addressController.text = parts.join(', ');
   }
 
   @override
@@ -109,148 +127,205 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
   }
 
   String _buildWhatsAppMessage() {
-    final lines = <String>[
-      'Hi SuperBai, I would like to book a service.',
-      '',
-      'Service: ${widget.serviceTitle}',
-    ];
+    return WhatsAppMessages.instantBooking(
+      service: _formatServiceForWhatsApp(),
+      houseSize: _formatHouseSizeForWhatsApp(),
+      additionalRequirements: _formatAdditionalRequirementsForWhatsApp(),
+      preferredTimeSlot: _formatPreferredTimeSlotForWhatsApp(),
+    );
+  }
 
-    void addLine(String label, String? value) {
+  String _formatServiceForWhatsApp() {
+    if (widget.serviceTitle == 'All-rounder' &&
+        widget.currentSelectedAllRounderTypes.isNotEmpty) {
+      return 'All-rounder (${widget.currentSelectedAllRounderTypes.join(', ')})';
+    }
+    return widget.serviceTitle;
+  }
+
+  String? _formatHouseSizeForWhatsApp() {
+    if (widget.currentSelectedAreaOption != null &&
+        widget.currentSelectedAreaOption!.isNotEmpty) {
+      return widget.currentSelectedAreaOption;
+    }
+
+    if (widget.serviceTitle == 'All-rounder' &&
+        widget.allRounderSubServiceData != null) {
+      for (final subServiceData in widget.allRounderSubServiceData!.values) {
+        final area = subServiceData['currentSelectedAreaOption'] as String?;
+        if (area != null && area.isNotEmpty) {
+          return area;
+        }
+      }
+    }
+
+    if (widget.currentSelectedPeopleCount > 0) {
+      return '${widget.currentSelectedPeopleCount} people';
+    }
+
+    return null;
+  }
+
+  String? _formatAdditionalRequirementsForWhatsApp() {
+    final details = <String>[];
+
+    void addDetail(String label, String? value) {
       if (value == null || value.isEmpty || value == 'N/A') return;
-      lines.add('$label: $value');
+      details.add('$label: $value');
+    }
+
+    void addSetDetail(String label, Set<String> values) {
+      if (values.isEmpty) return;
+      details.add('$label: ${values.join(', ')}');
     }
 
     if (widget.serviceTitle == 'Cooking') {
-      addLine('Meals', widget.currentSelectedMeals.join(', '));
-      addLine('Type', widget.currentSelectedMealType);
-      addLine('Style', widget.currentSelectedCookingStyles.join(', '));
-      addLine('People', widget.currentSelectedPeopleCount.toString());
+      addSetDetail('Meals', widget.currentSelectedMeals);
+      addDetail('Meal type', widget.currentSelectedMealType);
+      addSetDetail('Cooking style', widget.currentSelectedCookingStyles);
+      addDetail('People', widget.currentSelectedPeopleCount.toString());
     } else if (widget.serviceTitle == 'Cleaning') {
-      addLine('Area', widget.currentSelectedAreaOption);
-      addLine('Additional', widget.currentSelectedAdditionalServices.join(', '));
+      addSetDetail('Additional services', widget.currentSelectedAdditionalServices);
     } else if (widget.serviceTitle == 'Laundry') {
-      addLine('People', widget.currentSelectedPeopleCount.toString());
-      addLine(
-        'Washing Machine',
+      addDetail('People', widget.currentSelectedPeopleCount.toString());
+      addDetail(
+        'Washing machine',
         widget.currentHasWashingMachine == true
             ? 'Yes'
             : (widget.currentHasWashingMachine == false ? 'No' : null),
       );
-      addLine('Additional', widget.currentSelectedLaundryAdditional.join(', '));
+      addSetDetail('Additional', widget.currentSelectedLaundryAdditional);
     } else if (widget.serviceTitle == 'Elder-care') {
-      addLine('Type of Care', widget.currentSelectedTypeOfCare.join(', '));
-      addLine('Hours of Care', widget.currentSelectedHoursOfCare);
-      addLine('Special Needs', widget.currentSelectedSpecialNeeds.join(', '));
+      addSetDetail('Type of care', widget.currentSelectedTypeOfCare);
+      addDetail('Hours of care', widget.currentSelectedHoursOfCare);
+      addSetDetail('Special needs', widget.currentSelectedSpecialNeeds);
     } else if (widget.serviceTitle == 'Babysitter') {
-      addLine('No. of Children', widget.currentNumChildren.toString());
-      addLine('Child\'s Age', widget.currentSelectedChildAges.join(', '));
-      addLine('Activities', widget.currentSelectedActivities.join(', '));
-    } else if (widget.serviceTitle == 'All-rounder') {
-      addLine('Selected Types', widget.currentSelectedAllRounderTypes.join(', '));
+      addDetail('Children', widget.currentNumChildren.toString());
+      addSetDetail('Child age', widget.currentSelectedChildAges);
+      addSetDetail('Activities', widget.currentSelectedActivities);
     }
-
-    addLine('Pricing', 'Rs. ${widget.currentBudget.toInt()}');
-    addLine('Service Type', widget.currentServiceType);
-    if (widget.currentServiceType == 'Daily') {
-      addLine('Time Slots', widget.currentSelectedShiftTimes.join(', '));
-    }
-    if (widget.currentServiceType == 'Custom') {
-      addLine('Date', widget.currentSelectedDays.join(', '));
-      addLine('Time Slots', widget.currentSelectedShiftTimes.join(', '));
-    }
-    addLine('Shifts per day', widget.currentNumShifts.toString());
 
     if (widget.serviceTitle == 'All-rounder' &&
         widget.allRounderSubServiceData != null) {
       for (final entry in widget.allRounderSubServiceData!.entries) {
         final subServiceTitle = entry.key;
         final subServiceData = entry.value;
-        lines.add('');
-        lines.add('$subServiceTitle:');
+        final subDetails = <String>[];
 
         if (subServiceTitle == 'Cleaning') {
-          addLine('  Area', subServiceData['currentSelectedAreaOption']);
-          addLine(
-            '  Additional',
-            (subServiceData['currentSelectedAdditionalServices'] as Set<String>)
-                .join(', '),
-          );
+          final area = subServiceData['currentSelectedAreaOption'] as String?;
+          if (area != null && area.isNotEmpty) {
+            subDetails.add('Area: $area');
+          }
+          final additional =
+              subServiceData['currentSelectedAdditionalServices'] as Set<String>?;
+          if (additional != null && additional.isNotEmpty) {
+            subDetails.add('Additional: ${additional.join(', ')}');
+          }
         } else if (subServiceTitle == 'Cooking') {
-          addLine(
-            '  Meals',
-            (subServiceData['currentSelectedMeals'] as Set<String>).join(', '),
-          );
-          addLine('  Type', subServiceData['currentSelectedMealType']);
-          addLine(
-            '  Style',
-            (subServiceData['currentSelectedCookingStyles'] as Set<String>)
-                .join(', '),
-          );
-          addLine(
-            '  People',
-            subServiceData['currentSelectedPeopleCount'].toString(),
+          final meals = subServiceData['currentSelectedMeals'] as Set<String>?;
+          if (meals != null && meals.isNotEmpty) {
+            subDetails.add('Meals: ${meals.join(', ')}');
+          }
+          final mealType = subServiceData['currentSelectedMealType'] as String?;
+          if (mealType != null && mealType.isNotEmpty) {
+            subDetails.add('Type: $mealType');
+          }
+          final styles =
+              subServiceData['currentSelectedCookingStyles'] as Set<String>?;
+          if (styles != null && styles.isNotEmpty) {
+            subDetails.add('Style: ${styles.join(', ')}');
+          }
+          subDetails.add(
+            'People: ${subServiceData['currentSelectedPeopleCount']}',
           );
         } else if (subServiceTitle == 'Laundry') {
-          addLine(
-            '  People',
-            subServiceData['currentSelectedPeopleCount'].toString(),
+          subDetails.add(
+            'People: ${subServiceData['currentSelectedPeopleCount']}',
           );
-          addLine(
-            '  Washing Machine',
-            subServiceData['currentHasWashingMachine'] == true
-                ? 'Yes'
-                : (subServiceData['currentHasWashingMachine'] == false
-                      ? 'No'
-                      : null),
-          );
-          addLine(
-            '  Additional',
-            (subServiceData['currentSelectedLaundryAdditional'] as Set<String>)
-                .join(', '),
-          );
+          final hasMachine = subServiceData['currentHasWashingMachine'];
+          if (hasMachine == true) {
+            subDetails.add('Washing machine: Yes');
+          } else if (hasMachine == false) {
+            subDetails.add('Washing machine: No');
+          }
+          final additional =
+              subServiceData['currentSelectedLaundryAdditional'] as Set<String>?;
+          if (additional != null && additional.isNotEmpty) {
+            subDetails.add('Additional: ${additional.join(', ')}');
+          }
         } else if (subServiceTitle == 'Elder-care') {
-          addLine(
-            '  Type of Care',
-            (subServiceData['currentSelectedTypeOfCare'] as Set<String>)
-                .join(', '),
-          );
-          addLine('  Hours of Care', subServiceData['currentSelectedHoursOfCare']);
-          addLine(
-            '  Special Needs',
-            (subServiceData['currentSelectedSpecialNeeds'] as Set<String>)
-                .join(', '),
-          );
+          final careTypes =
+              subServiceData['currentSelectedTypeOfCare'] as Set<String>?;
+          if (careTypes != null && careTypes.isNotEmpty) {
+            subDetails.add('Type of care: ${careTypes.join(', ')}');
+          }
+          final hours = subServiceData['currentSelectedHoursOfCare'] as String?;
+          if (hours != null && hours.isNotEmpty) {
+            subDetails.add('Hours of care: $hours');
+          }
+          final needs =
+              subServiceData['currentSelectedSpecialNeeds'] as Set<String>?;
+          if (needs != null && needs.isNotEmpty) {
+            subDetails.add('Special needs: ${needs.join(', ')}');
+          }
         } else if (subServiceTitle == 'Babysitter') {
-          addLine(
-            '  No. of Children',
-            subServiceData['currentNumChildren'].toString(),
-          );
-          addLine(
-            '  Child\'s Age',
-            (subServiceData['currentSelectedChildAges'] as Set<String>)
-                .join(', '),
-          );
-          addLine(
-            '  Activities',
-            (subServiceData['currentSelectedActivities'] as Set<String>)
-                .join(', '),
-          );
+          subDetails.add('Children: ${subServiceData['currentNumChildren']}');
+          final ages = subServiceData['currentSelectedChildAges'] as Set<String>?;
+          if (ages != null && ages.isNotEmpty) {
+            subDetails.add('Child age: ${ages.join(', ')}');
+          }
+          final activities =
+              subServiceData['currentSelectedActivities'] as Set<String>?;
+          if (activities != null && activities.isNotEmpty) {
+            subDetails.add('Activities: ${activities.join(', ')}');
+          }
+        }
+
+        if (subDetails.isNotEmpty) {
+          details.add('$subServiceTitle - ${subDetails.join('; ')}');
         }
       }
     }
 
-    addLine('Address', _addressController.text.trim());
+    addDetail('Service type', widget.currentServiceType);
+    addDetail('Budget', 'Rs. ${widget.currentBudget.toInt()}');
+    addDetail('Shifts per day', widget.currentNumShifts.toString());
+
+    final address = _addressController.text.trim();
+    if (address.isNotEmpty) {
+      details.add('Address: $address');
+    }
 
     if (widget.maidId != null && widget.maidId!.isNotEmpty) {
-      addLine('Maid ID', widget.maidId);
+      details.add('Maid ID: ${widget.maidId}');
     }
 
     final user = FirebaseAuth.instance.currentUser;
     if (user?.phoneNumber != null && user!.phoneNumber!.isNotEmpty) {
-      addLine('Contact', user.phoneNumber);
+      details.add('Contact: ${user.phoneNumber}');
     }
 
-    return lines.join('\n');
+    return details.isEmpty ? null : details.join('; ');
+  }
+
+  String? _formatPreferredTimeSlotForWhatsApp() {
+    final parts = <String>[];
+
+    if (widget.currentServiceType != null &&
+        widget.currentServiceType!.isNotEmpty) {
+      parts.add(widget.currentServiceType!);
+    }
+
+    if (widget.currentSelectedDays.isNotEmpty) {
+      parts.add(widget.currentSelectedDays.join(', '));
+    }
+
+    if (widget.currentSelectedShiftTimes.isNotEmpty) {
+      parts.add(widget.currentSelectedShiftTimes.join(', '));
+    }
+
+    return parts.isEmpty ? null : parts.join(' | ');
   }
 
   Future<void> _openSupportWhatsApp(String messageText) async {
@@ -579,6 +654,8 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
+                              hintText:
+                                  'Society, wing, and flat number for this booking',
                             ),
                             style: GoogleFonts.poppins(
                               fontSize: 13,

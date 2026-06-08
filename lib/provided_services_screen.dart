@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
-import 'package:superbai/time_slot_screen.dart'; // Changed import to TimeSlotScreen
+import 'package:superbai/time_slot_screen.dart';
+import 'package:superbai/widgets/preferred_time_picker.dart';
+import 'package:superbai/widgets/service_duration_selector.dart';
 
 class ProvidedServicesScreen extends StatefulWidget {
   // Added maidData parameter as it will be passed from MaidDetailsScreen
@@ -66,6 +68,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
   double _currentBudget = 4000;
   Set<String> _currentSelectedDays = {};
   TimeOfDay? _preferredTime;
+  int _serviceDurationHours = 2;
 
   // Store the selected service title to pass to the confirmation screen
   String _selectedServiceTitle = '';
@@ -421,6 +424,14 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                 .toList(),
             'currentBudget': _currentBudget,
             'currentSelectedDays': _currentSelectedDays.toList(),
+            if (_preferredTime != null)
+              'selectedShiftTimes': [
+                formatHourwiseTimeSlot(
+                  _preferredTime!,
+                  _serviceDurationHours,
+                ),
+              ],
+            'numberOfShifts': 1,
           },
         ),
       ),
@@ -546,61 +557,21 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                               ),
                             ),
                             const SizedBox(height: 10),
-                            GestureDetector(
-                              onTap: () async {
-                                TimeOfDay? picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: _preferredTime ?? TimeOfDay.now(),
-                                  builder: (BuildContext context, Widget? child) {
-                                    return Theme(
-                                      data: _buildEnhancedTimePickerTheme(),
-                                      child: child!,
-                                    );
-                                  },
-                                );
-                                if (picked != null) {
-                                  modalSetState(() {
-                                    _preferredTime = picked;
-                                    timeSlotError = false;
-                                  });
-                                }
+                            PreferredTimeField(
+                              value: _preferredTime,
+                              hasError: timeSlotError,
+                              onChanged: (picked) {
+                                modalSetState(() {
+                                  _preferredTime = picked;
+                                  timeSlotError = false;
+                                });
                               },
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 15,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.neutralWhite,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppColors.neutralMediumGray,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      _preferredTime != null
-                                          ? _preferredTime!.format(context)
-                                          : 'Select Time',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        color: _preferredTime != null
-                                            ? AppColors.neutralBlack
-                                            : AppColors.neutralMediumGray,
-                                        fontWeight: FontWeight.normal,
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.access_time,
-                                      color: AppColors.neutralMediumGray,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
+                            ),
+                            const SizedBox(height: 14),
+                            ServiceDurationSelector(
+                              hours: _serviceDurationHours,
+                              onChanged: (hours) => modalSetState(
+                                () => _serviceDurationHours = hours,
                               ),
                             ),
                             if (timeSlotError)
@@ -623,6 +594,11 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
+                          if (_preferredTime == null) {
+                            modalSetState(() => timeSlotError = true);
+                            return;
+                          }
+
                           if (serviceTitle == 'All-rounder' &&
                               _allRounderSelectedSubServices.isEmpty) {
                             _allRounderSelectedSubServices =
@@ -1040,42 +1016,4 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
     );
   }
 
-  ThemeData _buildEnhancedTimePickerTheme() {
-    return ThemeData.light().copyWith(
-      colorScheme: ColorScheme.light(
-        primary: AppColors.primaryPurple,
-        onPrimary: AppColors.neutralWhite,
-        onSurface: AppColors.neutralBlack,
-        surface: AppColors.neutralWhite,
-        secondary: AppColors.primaryPurple,
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.primaryPurple,
-        ),
-      ),
-      timePickerTheme: TimePickerThemeData(
-        backgroundColor: AppColors.neutralWhite,
-        hourMinuteShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        hourMinuteColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryPurple
-              : AppColors.neutralWhite,
-        ),
-        hourMinuteTextColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.neutralWhite
-              : AppColors.neutralBlack,
-        ),
-        dialHandColor: AppColors.primaryPurple,
-        dialBackgroundColor: AppColors.neutralWhite,
-        dialTextColor: WidgetStateColor.resolveWith(
-          (states) => AppColors.neutralBlack,
-        ),
-        entryModeIconColor: AppColors.primaryPurple,
-      ),
-    );
-  }
 }

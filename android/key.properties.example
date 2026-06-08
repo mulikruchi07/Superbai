@@ -1,0 +1,15 @@
+# Prefer the automated setup script (creates keystore, key.properties, Firebase SHAs, google-services.json):
+#   ./scripts/setup_android_release.sh
+#
+# Or copy this file to android/key.properties and fill in manually.
+# Never commit key.properties or the .jks file to git.
+#
+# Manual keystore:
+# keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# Then add release SHA-1 and SHA-256 to Firebase Console → Project settings → com.example.superbai
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=/absolute/path/to/upload-keystore.jks

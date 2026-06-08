@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
-import 'package:superbai/time_slot_screen.dart'; // Import TimeSlotScreen for back navigation
-import 'package:superbai/maid_linking_screen.dart'; // Import MaidLinkingScreen
+import 'package:superbai/maid_linking_screen.dart';
 
 class SalaryScreen extends StatefulWidget {
   final Map<String, dynamic>? routeArguments;

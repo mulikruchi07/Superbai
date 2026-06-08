@@ -9,10 +9,11 @@ import 'package:superbai/find_maid_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/bill_screen.dart';
 import 'package:superbai/account_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:superbai/data/service_catalog.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:superbai/widgets/preferred_time_picker.dart';
+import 'package:superbai/widgets/service_duration_selector.dart';
+import 'package:superbai/data/whatsapp_messages.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -49,6 +50,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Set<String> _selectedTimeSlots = {};
   TimeOfDay? _preferredTime;
+  int _serviceDurationHours = 2;
 
   DateTime? _selectedCustomDate;
   String _selectedServiceTitle = '';
@@ -334,7 +336,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: AppColors.neutralMediumGray,
                       child: Center(
                         child: Text(
-                          'Banner Image Placeholder',
+                          'SuperBai — Trusted home help,\non demand',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.bodyText.copyWith(
                             color: AppColors.neutralWhite,
@@ -346,7 +348,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: _buildLinkMaidSection(),
+            ),
+            const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
@@ -389,7 +396,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 28),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: _buildFlexibilityUspSection(),
+            ),
+            const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: Text(
@@ -424,12 +436,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 15),
-                  _buildReferralButton(
-                    'Flexibility',
-                    Icons.tune,
-                    _launchFlexibilityWhatsApp,
                   ),
                 ],
               ),
@@ -618,9 +624,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _launchFlexibilityWhatsApp() async {
-    final message = Uri.encodeComponent(
-      'Hi SuperBai, I need help with Flexibility.',
-    );
+    final message = Uri.encodeComponent(WhatsAppMessages.flexibility());
     final appUri = Uri.parse(
       'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
     );
@@ -659,6 +663,268 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildLinkMaidSection() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FindMaidScreen()),
+          );
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: AppColors.primaryLightPurple.withOpacity(0.12),
+            border: Border.all(
+              color: AppColors.primaryPurple.withOpacity(0.25),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Image.asset(
+                    'assets/linking_icon.png',
+                    width: 28,
+                    height: 28,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.link,
+                      color: AppColors.primaryPurple,
+                      size: 26,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Link a Maid',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.neutralBlack,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Already have a maid? Search and link her to your account.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: AppColors.neutralDarkGray,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: AppColors.primaryPurple,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFlexibilityUspSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SuperBai Flexibility',
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.neutralBlack,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Household help that adapts when life does not.',
+          style: GoogleFonts.poppins(
+            fontSize: 13,
+            height: 1.4,
+            color: AppColors.neutralDarkGray,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: _launchFlexibilityWhatsApp,
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryPurple,
+                    AppColors.primaryLightPurple,
+                    AppColors.primaryPink,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryPurple.withOpacity(0.35),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
+                  BoxShadow(
+                    color: AppColors.primaryPink.withOpacity(0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    right: -18,
+                    top: -18,
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.neutralWhite.withOpacity(0.08),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: -24,
+                    bottom: -20,
+                    child: Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.neutralWhite.withOpacity(0.06),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: AppColors.neutralWhite.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: AppColors.neutralWhite.withOpacity(0.25),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.autorenew_rounded,
+                                color: AppColors.neutralWhite,
+                                size: 30,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Always covered.\nAlways flexible.',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      height: 1.25,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.neutralWhite,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Your home never stops — neither do we.',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      height: 1.35,
+                                      color: AppColors.neutralWhite.withOpacity(
+                                        0.92,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          decoration: BoxDecoration(
+                            color: AppColors.neutralWhite,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Image.asset(
+                                'assets/whatsapp_icon.png',
+                                width: 20,
+                                height: 20,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.chat_rounded,
+                                  color: AppColors.emotionGreen,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Get Flexibility Support',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primaryPurple,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.arrow_forward_rounded,
+                                color: AppColors.primaryPurple,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildReferralButton(String text, IconData icon, VoidCallback onTap) {
@@ -1390,86 +1656,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Widget _buildPreferredTimePicker(
-    BuildContext context,
-    StateSetter modalSetState, {
-    VoidCallback? onPicked,
-  }) {
-    return GestureDetector(
-      onTap: () async {
-        final picked = await showTimePicker(
-          context: context,
-          initialTime: _preferredTime ?? TimeOfDay.now(),
-          builder: (BuildContext context, Widget? child) {
-            return Theme(
-              data: _buildTimePickerTheme(),
-              child: child!,
-            );
-          },
-        );
-        if (picked != null) {
-          modalSetState(() {
-            _preferredTime = picked;
-            onPicked?.call();
-          });
-        }
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.neutralWhite,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.neutralMediumGray, width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _preferredTime != null
-                  ? _preferredTime!.format(context)
-                  : 'Select Time',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: _preferredTime != null
-                    ? AppColors.neutralBlack
-                    : AppColors.neutralMediumGray,
-              ),
-            ),
-            Icon(
-              Icons.access_time,
-              color: AppColors.neutralMediumGray,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  ThemeData _buildTimePickerTheme() {
-    return ThemeData.light().copyWith(
-      colorScheme: ColorScheme.light(
-        primary: AppColors.primaryPurple,
-        onPrimary: AppColors.neutralWhite,
-        onSurface: AppColors.neutralBlack,
-      ),
-      timePickerTheme: TimePickerThemeData(
-        dialHandColor: AppColors.primaryPurple,
-        hourMinuteColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryPurple
-              : AppColors.neutralWhite,
-        ),
-        hourMinuteTextColor: WidgetStateColor.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.neutralWhite
-              : AppColors.neutralBlack,
-        ),
-      ),
-    );
-  }
-
   Future<void> _selectDate(
     BuildContext context,
     StateSetter modalSetState,
@@ -1665,14 +1851,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    _buildPreferredTimePicker(
-                                      context,
-                                      modalSetState,
-                                      onPicked: () {
-                                        modalSetState(
-                                          () => timeSlotError = false,
-                                        );
+                                    PreferredTimeField(
+                                      value: _preferredTime,
+                                      hasError: timeSlotError,
+                                      onChanged: (picked) {
+                                        modalSetState(() {
+                                          _preferredTime = picked;
+                                          timeSlotError = false;
+                                        });
                                       },
+                                    ),
+                                    const SizedBox(height: 14),
+                                    ServiceDurationSelector(
+                                      hours: _serviceDurationHours,
+                                      onChanged: (hours) => modalSetState(
+                                        () => _serviceDurationHours = hours,
+                                      ),
                                     ),
                                     if (timeSlotError)
                                       Padding(
@@ -1770,14 +1964,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                    _buildPreferredTimePicker(
-                                      context,
-                                      modalSetState,
-                                      onPicked: () {
-                                        modalSetState(
-                                          () => timeSlotError = false,
-                                        );
+                                    PreferredTimeField(
+                                      value: _preferredTime,
+                                      hasError: timeSlotError,
+                                      onChanged: (picked) {
+                                        modalSetState(() {
+                                          _preferredTime = picked;
+                                          timeSlotError = false;
+                                        });
                                       },
+                                    ),
+                                    const SizedBox(height: 14),
+                                    ServiceDurationSelector(
+                                      hours: _serviceDurationHours,
+                                      onChanged: (hours) => modalSetState(
+                                        () => _serviceDurationHours = hours,
+                                      ),
                                     ),
                                     if (timeSlotError)
                                       Padding(
@@ -1833,7 +2035,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             if (!isValid) return;
 
                             _selectedTimeSlots = {
-                              _preferredTime!.format(context),
+                              formatHourwiseTimeSlot(
+                                _preferredTime!,
+                                _serviceDurationHours,
+                              ),
                             };
                             _currentNumShifts = 1;
 

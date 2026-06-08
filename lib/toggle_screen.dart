@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart'; // Import google_fonts
 import 'package:superbai/select_service_screen.dart'; // Import the new SelectServiceScreen
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:superbai/repositories/user_repository.dart';
+import 'package:superbai/dashboard_screen.dart';
 
 class ToggleScreen extends StatefulWidget {
   const ToggleScreen({super.key});
@@ -25,6 +26,13 @@ class _ToggleScreenState extends State<ToggleScreen> {
     _fetchUserName(); // Fetch the user's name when the screen loads
   }
 
+  void _goToHome() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      (route) => false,
+    );
+  }
+
   // Function to fetch the user's full name from Firestore
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -38,22 +46,6 @@ class _ToggleScreenState extends State<ToggleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Define messages based on selection
-    String? infoCardTitle;
-    String? infoCardSubtitle;
-    // Default color for the info card background
-    Color infoCardBackgroundColor = AppColors.neutralWhite;
-
-    if (_selectedOption == 'yes') {
-      infoCardTitle = 'Congratulations!';
-      infoCardSubtitle =
-          'You\'re already a master of household harmony. Let us help you maintain that peace effortlessly with our maid management services';
-    } else if (_selectedOption == 'no') {
-      infoCardTitle = 'No maid, no worries!';
-      infoCardSubtitle =
-          'Discover a world of trustworthy and verified maids at your fingertips. Your search for the perfect helping hand starts here.';
-    }
-
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
       appBar: AppBar(
@@ -61,10 +53,7 @@ class _ToggleScreenState extends State<ToggleScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.neutralWhite),
-          onPressed: () {
-            // Use pop to go back to the UserDetailsScreen if it's on the stack
-            Navigator.pop(context);
-          },
+          onPressed: _goToHome,
         ),
         title: FittedBox(
           // Use FittedBox to ensure text fits horizontally
@@ -179,7 +168,7 @@ class _ToggleScreenState extends State<ToggleScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  color: infoCardBackgroundColor,
+                                  color: AppColors.neutralWhite,
                                   borderRadius: BorderRadius.circular(
                                     20,
                                   ), // Curved edges for the card

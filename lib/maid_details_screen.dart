@@ -115,7 +115,7 @@ class MaidDetailsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 3), // Smaller gap
                       Text(
-                        'Code: ${maidData['code'] ?? 'XXXX'}',
+                        'Code: ${maidData['code'] ?? 'Not assigned'}',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: AppColors.neutralBlack,

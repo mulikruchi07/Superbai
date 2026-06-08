@@ -5,6 +5,7 @@ import 'package:superbai/dashboard_screen.dart';
 import 'package:superbai/booking_screen.dart';
 import 'package:superbai/account_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:superbai/data/whatsapp_messages.dart';
 
 class BillScreen extends StatefulWidget {
   const BillScreen({super.key});
@@ -27,9 +28,7 @@ class _BillScreenState extends State<BillScreen> {
   int _selectedNavbarIndex = 2;
 
   Future<void> _openJoinPassWhatsApp() async {
-    const messageText =
-        'Hi SuperBai, I would like to join SuperBai Pass. Please help me get started.';
-    final message = Uri.encodeComponent(messageText);
+    final message = Uri.encodeComponent(WhatsAppMessages.superbaiPass());
     final appUri = Uri.parse(
       'whatsapp://send?phone=$_supportWhatsAppNumber&text=$message',
     );
@@ -571,7 +570,6 @@ class _BillScreenState extends State<BillScreen> {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: _textMuted, size: 18),
               ],
             ),
           );
