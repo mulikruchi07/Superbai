@@ -47,7 +47,7 @@ class _ToggleScreenState extends State<ToggleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple, // AppBar background color
         elevation: 0,

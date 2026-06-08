@@ -27,7 +27,7 @@ class TermsAndConditionsScreen extends StatelessWidget {
     final isTerms = section == LegalDocumentSection.termsOfService;
 
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,

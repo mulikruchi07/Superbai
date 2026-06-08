@@ -183,7 +183,7 @@ class _AddMaidScreenState extends State<AddMaidScreen> {
     final isEdit = widget.maidId != null;
 
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         title: Text(

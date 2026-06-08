@@ -273,7 +273,7 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
     final bottomSafeArea = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,
@@ -500,7 +500,7 @@ class FAQAnswerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,

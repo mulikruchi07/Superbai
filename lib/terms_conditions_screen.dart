@@ -92,7 +92,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: AppColors.neutralWhite,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: AppColors.primaryPurple,
           elevation: 0,

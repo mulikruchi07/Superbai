@@ -211,7 +211,7 @@ class _MaidLinkingScreenState extends State<MaidLinkingScreen> {
     return PopScope(
       canPop: !_isLinking,
       child: Scaffold(
-        backgroundColor: AppColors.neutralWhite,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: AppColors.primaryPurple,
           elevation: 0,

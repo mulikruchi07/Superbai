@@ -211,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite, // Initial background
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           // This ensures the logo is always on top when zooming,

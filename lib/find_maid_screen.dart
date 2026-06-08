@@ -105,7 +105,7 @@ class _FindMaidScreenState extends State<FindMaidScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,
@@ -337,7 +337,7 @@ class _MaidUniqueCodeScreenState extends State<MaidUniqueCodeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,

@@ -25,7 +25,7 @@ class _ReferMaidScreenState extends State<ReferMaidScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPink, // Pink background for AppBar
         elevation: 0,

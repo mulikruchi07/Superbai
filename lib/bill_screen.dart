@@ -19,7 +19,6 @@ class _BillScreenState extends State<BillScreen> {
 
   static const Color _passPurple = Color(0xFF7B3FF2);
   static const Color _passPink = Color(0xFFFF4DA6);
-  static const Color _passBackground = Color(0xFFF8F7FB);
   static const Color _textMuted = Color(0xFF687280);
   static const Color _textDark = Color(0xFF1F1235);
   static const Color _lightPink = Color(0xFFFFE6F1);
@@ -72,7 +71,7 @@ class _BillScreenState extends State<BillScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _passBackground,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(

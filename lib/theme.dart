@@ -36,6 +36,10 @@ class AppColors {
 
   // Neutral Colors
   static Color neutralWhite = Colors.white;
+  /// Soft pink-tinted app background (gradient fallback solid).
+  static const Color appBackground = Color(0xFFF8F2FC);
+  static const Color gradientPink = Color(0xFFFFE6F1);
+  static const Color gradientLavender = Color(0xFFEDE8FF);
   static Color neutralLightGray = HexColor.fromHex('#F5F5F5');
   static Color neutralMediumGray = HexColor.fromHex('#E0E0E0');
   static Color neutralDarkGray = HexColor.fromHex('#757575');
@@ -105,13 +109,33 @@ class AppTextStyles {
   );
 }
 
+/// Subtle pink-to-lavender gradient used behind all screens.
+class AppDecorations {
+  AppDecorations._();
+
+  static const LinearGradient scaffoldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      AppColors.gradientPink,
+      AppColors.appBackground,
+      AppColors.gradientLavender,
+    ],
+    stops: [0.0, 0.45, 1.0],
+  );
+
+  static const BoxDecoration scaffoldGradientDecoration = BoxDecoration(
+    gradient: scaffoldGradient,
+  );
+}
+
 // App Theme Data
 final ThemeData appTheme = ThemeData(
   primaryColor: AppColors.primaryPurple,
   hintColor: AppColors.primaryPink, // Used for accent color/secondary emphasis
-  scaffoldBackgroundColor: AppColors.neutralWhite,
+  scaffoldBackgroundColor: Colors.transparent,
   appBarTheme: AppBarTheme(
-    backgroundColor: AppColors.neutralWhite,
+    backgroundColor: Colors.transparent,
     elevation: 0,
     iconTheme: IconThemeData(color: AppColors.neutralBlack),
     titleTextStyle: AppTextStyles.heading4.copyWith(color: AppColors.neutralBlack),

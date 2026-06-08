@@ -18,7 +18,7 @@ class MaidDetailsScreen extends StatelessWidget {
         maidData['isVerified'] ?? false; // Default to false if not specified
 
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor:
             AppColors.primaryPurple, // AppBar background color kept purple

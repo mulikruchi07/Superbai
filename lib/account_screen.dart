@@ -210,7 +210,7 @@ class _AccountScreenState extends State<AccountScreen> {
       child: Stack(
       children: [
         Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       body: Column(
         children: [
           // Top Purple Section with Profile and Points

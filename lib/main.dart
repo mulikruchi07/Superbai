@@ -25,9 +25,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SuperBai App',
-      theme: appTheme, // Apply your custom theme
+      theme: appTheme,
+      builder: (context, child) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(
+              decoration: AppDecorations.scaffoldGradientDecoration,
+            ),
+            if (child != null) child,
+          ],
+        );
+      },
       home: const SplashScreen(),
-      debugShowCheckedModeBanner: false, // Remove debug banner
+      debugShowCheckedModeBanner: false,
     );
   }
 }

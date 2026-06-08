@@ -9,7 +9,7 @@ class RequestSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       // UPDATED: Wrapped the body in a SafeArea to prevent overlap with system UI
       body: SafeArea(
         child: Padding(

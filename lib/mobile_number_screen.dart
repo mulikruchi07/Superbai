@@ -316,7 +316,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       resizeToAvoidBottomInset: true,
       // NEW: SafeArea prevents UI from being overlapped by system UI (status bar, nav bar)
       body: SafeArea(

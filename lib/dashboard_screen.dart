@@ -365,7 +365,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final services = ServiceCatalog.all;
 
     return Scaffold(
-      backgroundColor: AppColors.neutralWhite,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.neutralWhite,
         elevation: 0,
