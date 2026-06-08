@@ -7,6 +7,8 @@ import 'package:superbai/theme.dart';
 class SuperbaiTimePicker {
   SuperbaiTimePicker._();
 
+  static const int minuteInterval = 15;
+
   static const List<TimeOfDay> presets = [
     TimeOfDay(hour: 7, minute: 0),
     TimeOfDay(hour: 9, minute: 0),
@@ -26,7 +28,7 @@ class SuperbaiTimePicker {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _TimePickerSheet(
-        initialTime: initialTime ?? TimeOfDay.now(),
+        initialTime: snapToMinuteInterval(initialTime ?? TimeOfDay.now()),
         title: title,
       ),
     );
@@ -39,9 +41,27 @@ class SuperbaiTimePicker {
     return '$hour:$minute $period';
   }
 
+  static TimeOfDay snapToMinuteInterval(TimeOfDay time) {
+    final totalMinutes = time.hour * 60 + time.minute;
+    final snappedMinutes =
+        ((totalMinutes / minuteInterval).round() * minuteInterval) %
+        (24 * 60);
+    return TimeOfDay(
+      hour: snappedMinutes ~/ 60,
+      minute: snappedMinutes % 60,
+    );
+  }
+
   static DateTime _toDateTime(TimeOfDay time) {
+    final snapped = snapToMinuteInterval(time);
     final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, time.hour, time.minute);
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+      snapped.hour,
+      snapped.minute,
+    );
   }
 
   static TimeOfDay _fromDateTime(DateTime dateTime) {
@@ -298,6 +318,7 @@ class _TimePickerSheetState extends State<_TimePickerSheet> {
                   child: CupertinoDatePicker(
                     mode: CupertinoDatePickerMode.time,
                     initialDateTime: _selectedDateTime,
+                    minuteInterval: SuperbaiTimePicker.minuteInterval,
                     use24hFormat: false,
                     onDateTimeChanged: (value) {
                       setState(() => _selectedDateTime = value);

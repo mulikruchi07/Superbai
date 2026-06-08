@@ -270,6 +270,8 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
       appBar: AppBar(
@@ -295,10 +297,9 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
         // Use a Stack for the entire body to layer content and floating buttons
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 0.0,
-              vertical: 0.0,
-            ), // Overall padding
+            padding: EdgeInsets.only(
+              bottom: bottomSafeArea + 100,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -310,13 +311,12 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
                       () => _openFaqAnswer(item),
                     ),
                 ],
-                const SizedBox(height: 20),
               ],
             ),
           ),
           // Floating Action Buttons (reduced size)
           Positioned(
-            bottom: 20.0,
+            bottom: bottomSafeArea + 20.0,
             right: 20.0, // Changed from right to right
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -521,7 +521,12 @@ class FAQAnswerScreen extends StatelessWidget {
         centerTitle: false,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).padding.bottom + 32,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -533,14 +538,12 @@ class FAQAnswerScreen extends StatelessWidget {
                 fontWeight: FontWeight.normal,
               ),
             ),
-            const SizedBox(height: 40), // Add some space below the content
-            if (showStillNeedHelp !=
-                null) // Conditionally show the button if the callback is provided
+            const SizedBox(height: 40),
+            if (showStillNeedHelp != null)
               SizedBox(
-                // Added SizedBox to make the button full width
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: showStillNeedHelp, // Call the passed function
+                  onPressed: showStillNeedHelp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPurple,
                     padding: const EdgeInsets.symmetric(

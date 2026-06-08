@@ -22,6 +22,7 @@ dependencies:
   firebase_auth: ^5.6.2
   intl: ^0.20.2
   cloud_firestore: ^5.6.12
+  video_player: ^2.9.2
 
 dev_dependencies:
   flutter_test:
@@ -35,10 +36,11 @@ flutter:
     - assets/logo.png
     - assets/superbai_text.PNG
     - assets/bottom_illustration.png 
-    - assets/login1.jpeg
-    - assets/login2.jpeg
-    - assets/login3.jpeg
-    - assets/dashboard_images/banner.png
+    - assets/welcome.jpeg
+    - assets/benefits.jpeg
+    - assets/manage.jpeg
+    - assets/dashboard_video.mp4
+    - assets/dashboard_images/banner.PNG
     - assets/dashboard_images/cleaning_icon.png
     - assets/dashboard_images/cooking_icon.jpg
     - assets/dashboard_images/laundry_icon.png

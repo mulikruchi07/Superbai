@@ -346,14 +346,29 @@ class _AccountScreenState extends State<AccountScreen> {
                     },
                   ),
                   _buildAccountOption(
-                    icon: Icons.info_outline,
-                    text: 'Terms & Conditions',
+                    icon: Icons.description_outlined,
+                    text: 'Terms of Service',
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const TermsAndConditionsScreen(),
+                          builder: (context) => const TermsAndConditionsScreen(
+                            section: LegalDocumentSection.termsOfService,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildAccountOption(
+                    icon: Icons.privacy_tip_outlined,
+                    text: 'Privacy Policy',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TermsAndConditionsScreen(
+                            section: LegalDocumentSection.privacyPolicy,
+                          ),
                         ),
                       );
                     },

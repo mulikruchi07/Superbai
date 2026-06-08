@@ -3,11 +3,29 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/data/terms_and_conditions.dart';
 import 'package:superbai/theme.dart';
 
+enum LegalDocumentSection { termsOfService, privacyPolicy }
+
 class TermsAndConditionsScreen extends StatelessWidget {
-  const TermsAndConditionsScreen({super.key});
+  const TermsAndConditionsScreen({
+    super.key,
+    required this.section,
+  });
+
+  final LegalDocumentSection section;
+
+  String get _appBarTitle {
+    switch (section) {
+      case LegalDocumentSection.termsOfService:
+        return 'Terms of Service';
+      case LegalDocumentSection.privacyPolicy:
+        return 'Privacy Policy';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isTerms = section == LegalDocumentSection.termsOfService;
+
     return Scaffold(
       backgroundColor: AppColors.neutralWhite,
       appBar: AppBar(
@@ -18,14 +36,14 @@ class TermsAndConditionsScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Terms & Conditions',
+          _appBarTitle,
           style: GoogleFonts.poppins(
             fontSize: 18,
             color: AppColors.neutralWhite,
             fontWeight: FontWeight.normal,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -33,67 +51,60 @@ class TermsAndConditionsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              TermsAndConditions.intro,
+              isTerms ? 'SUPERBAI TERMS OF SERVICE' : 'SUPERBAI PRIVACY POLICY',
               style: GoogleFonts.poppins(
-                fontSize: 13,
-                height: 1.45,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
                 color: AppColors.neutralBlack,
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Terms of Service',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.neutralBlack,
+            if (isTerms) ...[
+              Text(
+                TermsAndConditions.intro,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppColors.neutralBlack,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            ...TermsAndConditions.termsSections.map(_buildSection),
-            const SizedBox(height: 18),
-            Text(
-              'Privacy Policy',
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.neutralBlack,
+              const SizedBox(height: 16),
+              ...TermsAndConditions.termsSections.map(_buildSection),
+            ] else ...[
+              Text(
+                TermsAndConditions.privacyIntro,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppColors.neutralDarkGray,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              TermsAndConditions.privacyIntro,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                height: 1.45,
-                color: AppColors.neutralDarkGray,
+              const SizedBox(height: 16),
+              ...TermsAndConditions.privacySections.map(_buildSection),
+              const SizedBox(height: 12),
+              Text(
+                'Consent',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.neutralBlack,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            ...TermsAndConditions.privacySections.map(_buildSection),
-            const SizedBox(height: 12),
-            Text(
-              'Consent',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.neutralBlack,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...TermsAndConditions.privacyConsent.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  '• $item',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: AppColors.neutralBlack,
+              const SizedBox(height: 8),
+              ...TermsAndConditions.privacyConsent.map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '✓ $item',
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: AppColors.neutralBlack,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 20),
           ],
         ),

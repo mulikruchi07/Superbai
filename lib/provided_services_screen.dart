@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart'; // Assuming AppColors and AppTextStyles are defined here
-import 'package:superbai/time_slot_screen.dart';
+import 'package:superbai/salary_screen.dart';
 import 'package:superbai/widgets/preferred_time_picker.dart';
 import 'package:superbai/widgets/service_duration_selector.dart';
 
@@ -64,7 +64,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
   Set<String> _currentSelectedActivities = {};
   Set<String> _currentSelectedAllRounderTypes = {};
 
-  // These variables are kept to satisfy the arguments needed for TimeSlotScreen, but their values are not updated via UI.
+  // These variables are passed through to the salary screen as part of maid service details.
   double _currentBudget = 4000;
   Set<String> _currentSelectedDays = {};
   TimeOfDay? _preferredTime;
@@ -254,43 +254,21 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
         title: Text(
           'Select the Services',
           style: GoogleFonts.poppins(
-            fontSize: 16,
+            fontSize: 18,
             color: AppColors.neutralWhite,
             fontWeight: FontWeight.w500,
           ),
         ),
-        centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.neutralWhite,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  '1/3',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppColors.primaryPurple,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
         child: GridView.builder(
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            crossAxisSpacing: 20.0,
-            mainAxisSpacing: 20.0,
-            childAspectRatio: 0.9,
+            crossAxisSpacing: 16.0,
+            mainAxisSpacing: 16.0,
+            childAspectRatio: 0.85,
           ),
           itemCount: _services.length,
           itemBuilder: (context, index) {
@@ -324,82 +302,80 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
         _allRounderSelectedSubServices.clear();
         _showServiceDetailsSheet(context, title);
       },
-      child: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.neutralWhite,
-              borderRadius: BorderRadius.circular(12.0),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.neutralMediumGray.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
-                ),
-              ],
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          color: AppColors.neutralWhite,
+          borderRadius: BorderRadius.circular(12.0),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.neutralMediumGray.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  imagePath,
-                  height: 100,
-                  width: 100,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.broken_image,
-                      size: 80,
-                      color: AppColors.neutralMediumGray,
-                    );
-                  },
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Image.asset(
+              imagePath,
+              height: 100,
+              width: 100,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.broken_image,
+                  size: 80,
+                  color: AppColors.neutralMediumGray,
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: AppTextStyles.bodyText.fontSize,
+                color: AppColors.neutralBlack,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (isComingSoon) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Coming Soon',
                   style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.bodyText.fontSize,
-                    color: AppColors.neutralBlack,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 11,
+                    color: AppColors.primaryPurple,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (isComingSoon) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Coming Soon',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: AppColors.primaryPurple,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  void _navigateToTimeSlotScreen(BuildContext context) {
+  void _navigateToSalaryScreen(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const TimeSlotScreen(),
-        settings: RouteSettings(
-          arguments: {
+        builder: (context) => SalaryScreen(
+          routeArguments: {
             'maidData': widget.maidData,
             'serviceTitle': _selectedServiceTitle,
             'currentSelectedAreaOption': _currentSelectedAreaOption,
@@ -613,7 +589,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                                 ); // Re-show for sub-service
                               });
                             } else {
-                              _navigateToTimeSlotScreen(context);
+                              _navigateToSalaryScreen(context);
                             }
                             return;
                           }
@@ -630,7 +606,7 @@ class _ProvidedServicesScreenState extends State<ProvidedServicesScreen> {
                           }
 
                           Navigator.pop(context);
-                          _navigateToTimeSlotScreen(context);
+                          _navigateToSalaryScreen(context);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryPurple,

@@ -18,8 +18,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _remarkController = TextEditingController();
-  DateTime? _selectedDateOfPayment; // State variable for the selected date
-  bool _dateHasError = false; // State to track date validation error
+  DateTime? _selectedDateOfPayment;
   bool _isInitialized = false;
 
   @override
@@ -85,7 +84,6 @@ class _SalaryScreenState extends State<SalaryScreen> {
     if (picked != null && picked != _selectedDateOfPayment) {
       setState(() {
         _selectedDateOfPayment = picked;
-        _dateHasError = false; // Reset error when a date is picked
       });
     }
   }
@@ -98,17 +96,10 @@ class _SalaryScreenState extends State<SalaryScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
-  // Function to handle form submission
   void _submitForm() {
-    // First, validate the TextFormField
     final bool isFormValid = _formKey.currentState?.validate() ?? false;
 
-    // Then, validate the custom date picker
-    setState(() {
-      _dateHasError = _selectedDateOfPayment == null;
-    });
-
-    if (isFormValid && !_dateHasError) {
+    if (isFormValid) {
       // Create a mutable copy of maidData and add salary/remark
       Map<String, dynamic> updatedMaidData = {};
 
@@ -118,7 +109,9 @@ class _SalaryScreenState extends State<SalaryScreen> {
       // Add the new details from this screen
       updatedMaidData['salary'] = _amountController.text;
       updatedMaidData['remark'] = _remarkController.text;
-      updatedMaidData['dateOfPayment'] = _formatDate(_selectedDateOfPayment);
+      if (_selectedDateOfPayment != null) {
+        updatedMaidData['dateOfPayment'] = _formatDate(_selectedDateOfPayment);
+      }
 
       // Navigate to MaidLinkingScreen
       Navigator.push(
@@ -143,40 +136,15 @@ class _SalaryScreenState extends State<SalaryScreen> {
             Navigator.of(context).pop();
           },
         ),
-        title: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            'Mention the salary you pay:',
-            style: GoogleFonts.poppins(
-              fontSize: 18, // Base font size
-              color: AppColors.neutralWhite,
-              fontWeight: FontWeight.normal,
-            ),
+        title: Text(
+          'Mention the salary you pay:',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            color: AppColors.neutralWhite,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 20.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: AppColors.neutralWhite,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  '3/3', // Page indicator
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppColors.primaryPurple,
-                    fontWeight: FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -266,7 +234,7 @@ class _SalaryScreenState extends State<SalaryScreen> {
 
                     // Date of Payment Input
                     Text(
-                      'Date of Payment*',
+                      'Date of Payment',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         color: AppColors.neutralBlack,
@@ -274,63 +242,42 @@ class _SalaryScreenState extends State<SalaryScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        GestureDetector(
-                          onTap: () => _selectDate(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 15,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.neutralWhite,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _dateHasError
-                                    ? Colors.redAccent
-                                    : AppColors.neutralMediumGray,
-                                width: _dateHasError ? 1.5 : 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  _formatDate(_selectedDateOfPayment),
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: _selectedDateOfPayment == null
-                                        ? AppColors.neutralMediumGray
-                                        : AppColors.neutralBlack,
-                                    fontWeight: FontWeight.normal,
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.calendar_today,
-                                  color: AppColors.neutralMediumGray,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
+                    GestureDetector(
+                      onTap: () => _selectDate(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.neutralWhite,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppColors.neutralMediumGray,
+                            width: 1.0,
                           ),
                         ),
-                        if (_dateHasError)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: 12.0,
-                              top: 8.0,
-                            ),
-                            child: Text(
-                              'Please select a date of payment',
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDate(_selectedDateOfPayment),
                               style: GoogleFonts.poppins(
-                                color: Colors.redAccent.shade700,
-                                fontSize: 12,
+                                fontSize: 14,
+                                color: _selectedDateOfPayment == null
+                                    ? AppColors.neutralMediumGray
+                                    : AppColors.neutralBlack,
+                                fontWeight: FontWeight.normal,
                               ),
                             ),
-                          ),
-                      ],
+                            Icon(
+                              Icons.calendar_today,
+                              color: AppColors.neutralMediumGray,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
 

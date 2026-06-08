@@ -98,7 +98,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
           elevation: 0,
           automaticallyImplyLeading: false,
           title: Text(
-            'Terms & Conditions',
+            'Terms and Conditions',
             style: GoogleFonts.poppins(
               fontSize: 17,
               fontWeight: FontWeight.w600,
@@ -149,7 +149,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        TermsAndConditions.intro,
+                        TermsAndConditions.customerTermsWelcome,
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           height: 1.45,
@@ -157,63 +157,8 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      ...TermsAndConditions.termsSections.map(_buildSection),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Privacy Policy',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.neutralBlack,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        TermsAndConditions.privacyIntro,
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          height: 1.45,
-                          color: AppColors.neutralDarkGray,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ...TermsAndConditions.privacySections.map(_buildSection),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Privacy Consent',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.neutralBlack,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...TermsAndConditions.privacyConsent.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 16,
-                                color: AppColors.primaryPurple,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  item,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    height: 1.4,
-                                    color: AppColors.neutralBlack,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      ...TermsAndConditions.customerTermsSections
+                          .map(_buildSection),
                       const SizedBox(height: 12),
                       Text(
                         'Declaration',
@@ -224,7 +169,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      ...TermsAndConditions.declarations.map(
+                      ...TermsAndConditions.customerDeclarations.map(
                         (item) => Padding(
                           padding: const EdgeInsets.only(bottom: 6),
                           child: Row(
@@ -293,7 +238,7 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                           ),
                           Expanded(
                             child: Text(
-                              'I agree to the Terms of Service and Privacy Policy',
+                              'I agree to the Terms and Conditions',
                               style: GoogleFonts.poppins(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,

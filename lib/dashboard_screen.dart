@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:superbai/theme.dart';
 import 'package:geolocator/geolocator.dart';
@@ -27,6 +30,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _currentLocation = 'Fetching location...';
   int _selectedNavbarIndex = 0;
+  VideoPlayerController? _bannerVideoController;
+  bool _bannerVideoReady = false;
+  bool _bannerVideoFailed = false;
 
   String? _currentSelectedAreaOption;
   Set<String> _currentSelectedAdditionalServices = {};
@@ -210,7 +216,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _initBannerVideo();
     _determinePosition();
+  }
+
+  Future<void> _initBannerVideo() async {
+    final controller = VideoPlayerController.asset(
+      'assets/dashboard_video.mp4',
+    );
+    _bannerVideoController = controller;
+
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      controller.setLooping(true);
+      controller.setVolume(0);
+      await controller.play();
+      setState(() => _bannerVideoReady = true);
+    } catch (e) {
+      debugPrint('Dashboard banner video failed to load: $e');
+      if (!mounted) return;
+      await controller.dispose();
+      _bannerVideoController = null;
+      setState(() => _bannerVideoFailed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _bannerVideoController?.dispose();
+    super.dispose();
+  }
+
+  Widget _buildBannerMedia(BuildContext context) {
+    final bannerHeight = MediaQuery.of(context).size.height * 0.25;
+
+    if (_bannerVideoReady && _bannerVideoController != null) {
+      final controller = _bannerVideoController!;
+      return SizedBox(
+        width: double.infinity,
+        height: bannerHeight,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: controller.value.size.width,
+            height: controller.value.size.height,
+            child: VideoPlayer(controller),
+          ),
+        ),
+      );
+    }
+
+    if (_bannerVideoFailed) {
+      return _DashboardBannerCarousel(height: bannerHeight);
+    }
+
+    return Container(
+      height: bannerHeight,
+      color: AppColors.neutralLightGray,
+      child: Center(
+        child: CircularProgressIndicator(color: AppColors.primaryPurple),
+      ),
+    );
   }
 
   Future<void> _determinePosition() async {
@@ -325,27 +396,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(20.0),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(15),
-                child: Image.asset(
-                  'assets/dashboard_images/banner.png',
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: MediaQuery.of(context).size.height * 0.25,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: MediaQuery.of(context).size.height * 0.25,
-                      color: AppColors.neutralMediumGray,
-                      child: Center(
-                        child: Text(
-                          'SuperBai — Trusted home help,\non demand',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.bodyText.copyWith(
-                            color: AppColors.neutralWhite,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                child: _buildBannerMedia(context),
               ),
             ),
             const SizedBox(height: 16),
@@ -2220,5 +2271,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return baseBudget;
+  }
+}
+
+class _DashboardBannerCarousel extends StatefulWidget {
+  const _DashboardBannerCarousel({required this.height});
+
+  final double height;
+
+  static const List<String> images = [
+    'assets/welcome.jpeg',
+    'assets/benefits.jpeg',
+    'assets/manage.jpeg',
+  ];
+
+  @override
+  State<_DashboardBannerCarousel> createState() =>
+      _DashboardBannerCarouselState();
+}
+
+class _DashboardBannerCarouselState extends State<_DashboardBannerCarousel> {
+  final PageController _pageController = PageController();
+  Timer? _timer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      final nextPage = (_currentPage + 1) % _DashboardBannerCarousel.images.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: widget.height,
+      child: PageView.builder(
+        controller: _pageController,
+        onPageChanged: (index) => setState(() => _currentPage = index),
+        itemCount: _DashboardBannerCarousel.images.length,
+        itemBuilder: (context, index) {
+          return Image.asset(
+            _DashboardBannerCarousel.images[index],
+            width: double.infinity,
+            height: widget.height,
+            fit: BoxFit.cover,
+          );
+        },
+      ),
+    );
   }
 }

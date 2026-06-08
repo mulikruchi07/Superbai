@@ -34,19 +34,19 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
   int _currentPage = 0;
   final List<Map<String, String>> _onboardingPages = [
     {
-      'image': 'assets/login1.jpeg',
+      'image': 'assets/welcome.jpeg',
       'title': 'WELCOME',
       'subtitle':
           '\"Experience Effortless Cleanliness at Your\nFingertips with Our Trusted App.\"',
     },
     {
-      'image': 'assets/login2.jpeg',
+      'image': 'assets/benefits.jpeg',
       'title': 'BENEFITS',
       'subtitle':
           '\"Connect Your Maid, Collect Coupons,\nand Enjoy Exclusive Rewards!\"',
     },
     {
-      'image': 'assets/login3.jpeg',
+      'image': 'assets/manage.jpeg',
       'title': 'MANAGE',
       'subtitle':
           '\"All-in-One Maid Management Simplified\n– Features, Tracking, and More!\"',
