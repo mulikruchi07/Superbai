@@ -480,10 +480,10 @@ class _ConfirmationScreenState extends State<ConfirmationScreen> {
                   ],
 
                   const SizedBox(height: 15),
-                  _buildConfirmationRow(
-                    'Pricing',
-                    'Rs. ${widget.currentBudget.toInt()}',
-                  ),
+                  // _buildConfirmationRow(
+                  //   'Pricing',
+                  //   'Rs. ${widget.currentBudget.toInt()}',
+                  // ),
                   _buildConfirmationRow(
                     'Service Type',
                     widget.currentServiceType ?? 'N/A',
