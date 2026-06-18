@@ -8,7 +8,7 @@
       "android": {
         "default": {
           "projectId": "superbai-81bc6",
-          "appId": "1:615905251954:android:e7844b86baa467a0dc68eb",
+          "appId": "1:615905251954:android:6c93961f0ad345dbdc68eb",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -16,7 +16,7 @@
         "lib/firebase_options.dart": {
           "projectId": "superbai-81bc6",
           "configurations": {
-            "android": "1:615905251954:android:e7844b86baa467a0dc68eb"
+            "android": "1:615905251954:android:6c93961f0ad345dbdc68eb"
           }
         }
       }

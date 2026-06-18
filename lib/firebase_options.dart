@@ -41,18 +41,18 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: '"REPLACE_WITH_YOUR_KEY"',
-    appId: '"REPLACE_WITH_YOUR_ID"',
-    messagingSenderId: '350617376160',
-    projectId: 'superbai-app',
-    authDomain: 'superbai-app.firebaseapp.com',
-    storageBucket: 'superbai-app.firebasestorage.app',
-    measurementId: 'G-E02LJ0ENDC',
+    apiKey: 'AIzaSyCqa-CgK1RYSnDgXCx0FrRHKOa41a5KrzY',
+    appId: '1:615905251954:web:0129768be3877438dc68eb',
+    messagingSenderId: '615905251954',
+    projectId: 'superbai-81bc6',
+    authDomain: 'superbai-81bc6.firebaseapp.com',
+    storageBucket: 'superbai-81bc6.appspot.com',
+    measurementId: 'G-60EWT9P349',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBJxWqMd7HfPpvki9TlbjajvLOpp8wGm0w',
-    appId: '1:615905251954:android:e7844b86baa467a0dc68eb',
+    appId: '1:615905251954:android:6c93961f0ad345dbdc68eb',
     messagingSenderId: '615905251954',
     projectId: 'superbai-81bc6',
     storageBucket: 'superbai-81bc6.appspot.com',
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '615905251954',
     projectId: 'superbai-81bc6',
     storageBucket: 'superbai-81bc6.appspot.com',
-    iosBundleId: 'com.example.superbai',
+    iosBundleId: 'com.superbai.sujal',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -72,16 +72,16 @@ class DefaultFirebaseOptions {
     messagingSenderId: '615905251954',
     projectId: 'superbai-81bc6',
     storageBucket: 'superbai-81bc6.appspot.com',
-    iosBundleId: 'com.example.superbai',
+    iosBundleId: 'com.superbai.sujal',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: '"REPLACE_WITH_YOUR_KEY"',
-    appId: '"REPLACE_WITH_YOUR_ID"',
-    messagingSenderId: '350617376160',
-    projectId: 'superbai-app',
-    authDomain: 'superbai-app.firebaseapp.com',
-    storageBucket: 'superbai-app.firebasestorage.app',
-    measurementId: 'G-6YRG43ND3L',
+    apiKey: 'AIzaSyCqa-CgK1RYSnDgXCx0FrRHKOa41a5KrzY',
+    appId: '1:615905251954:web:f17089b475397b53dc68eb',
+    messagingSenderId: '615905251954',
+    projectId: 'superbai-81bc6',
+    authDomain: 'superbai-81bc6.firebaseapp.com',
+    storageBucket: 'superbai-81bc6.appspot.com',
+    measurementId: 'G-JTE2CZZ322',
   );
 }

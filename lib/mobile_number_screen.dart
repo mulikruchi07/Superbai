@@ -125,6 +125,7 @@ class _MobileNumberScreenState extends State<MobileNumberScreen>
         return 'SMS quota exceeded. Try again later or use a test number in Firebase Console.';
       case 'app-not-authorized':
       case 'missing-app-identifier':
+      case 'missing-client-identifier':
         return 'Phone verification is not set up for this app build. Add your release SHA-1 and SHA-256 in Firebase Console, then reinstall the app.';
       case 'captcha-check-failed':
         return 'Verification check failed. Try again.';

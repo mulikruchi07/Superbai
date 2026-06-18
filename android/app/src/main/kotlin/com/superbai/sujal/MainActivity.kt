@@ -1,4 +1,4 @@
-package com.example.superbai
+package com.superbai.sujal
 
 import io.flutter.embedding.android.FlutterActivity
 

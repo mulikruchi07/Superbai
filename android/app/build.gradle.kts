@@ -19,7 +19,7 @@ if (hasReleaseKeystore) {
 }
 
 android {
-    namespace = "com.example.superbai"
+    namespace = "com.superbai.sujal"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -44,7 +44,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.superbai"
+        applicationId = "com.superbai.sujal"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

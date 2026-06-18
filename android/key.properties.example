@@ -7,7 +7,7 @@
 # Manual keystore:
 # keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 #
-# Then add release SHA-1 and SHA-256 to Firebase Console → Project settings → com.example.superbai
+# Then add release SHA-1 and SHA-256 to Firebase Console → Project settings → com.superbai.sujal
 
 storePassword=YOUR_KEYSTORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD

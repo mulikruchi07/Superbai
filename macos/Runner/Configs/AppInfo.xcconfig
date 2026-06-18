@@ -8,7 +8,7 @@
 PRODUCT_NAME = superbai
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.superbai
+PRODUCT_BUNDLE_IDENTIFIER = com.superbai.sujal
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 SuperBai Solutions Private Limited. All rights reserved.
