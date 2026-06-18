@@ -323,7 +323,7 @@ class UserRepository {
   }
 
   /// Deletes all Firestore data tied to [authUser]: profiles, bookings,
-  /// payments, complaints, reviews, OTPs, and legacy star-schema rows.
+  /// payments, complaints, reviews, and legacy star-schema rows.
   Future<void> deleteAllUserDataForAuthUser(User authUser) async {
     final profileRefs = await collectProfileRefsForAuthUser(authUser);
     final userRefs = <DocumentReference<Map<String, dynamic>>>[
@@ -369,7 +369,6 @@ class UserRepository {
 
     await _deleteReferences(transactionRefs.values);
     await _deleteDocumentSnapshots(appointmentDocs.values);
-    await _deleteOtpsForPhone(authUser.phoneNumber);
     await _deleteLegacyStarSchemaForAuthUser(authUser);
     await _deleteReferences(profileRefs);
   }
@@ -388,24 +387,6 @@ class UserRepository {
         .where(field, isEqualTo: value)
         .get();
     await _deleteDocumentSnapshots(snap.docs);
-  }
-
-  Future<void> _deleteOtpsForPhone(String? phoneNumber) async {
-    for (final variant in PhoneUtils.queryVariants(phoneNumber)) {
-      final snap = await _firestore
-          .collection(UserRelatedFields.otpsCollection)
-          .where(UserRelatedFields.phoneNumber, isEqualTo: variant)
-          .get();
-      await _deleteDocumentSnapshots(snap.docs);
-    }
-    final asInt = int.tryParse(PhoneUtils.toTenDigit(phoneNumber));
-    if (asInt != null) {
-      final snap = await _firestore
-          .collection(UserRelatedFields.otpsCollection)
-          .where(UserRelatedFields.phoneNumber, isEqualTo: asInt)
-          .get();
-      await _deleteDocumentSnapshots(snap.docs);
-    }
   }
 
   Future<void> _deleteLegacyStarSchemaForAuthUser(User authUser) async {
