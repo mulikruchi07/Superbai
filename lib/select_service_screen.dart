@@ -22,13 +22,9 @@ class SelectServiceScreen extends StatefulWidget {
 }
 
 class _SelectServiceScreenState extends State<SelectServiceScreen> {
-  List<Map<String, String>> get _services => widget.isInstantBooking
-      ? ServiceCatalog.instantBookable.map((s) => s.toTitleImage()).toList()
-      : ServiceCatalog.all.map((s) => s.toTitleImage()).toList();
-
-  Set<String> get _comingSoonServices => widget.isInstantBooking
-      ? <String>{}
-      : ServiceCatalog.comingSoonTitles;
+  List<ServiceDefinition> get _catalogServices => widget.isInstantBooking
+      ? ServiceCatalog.instantBookable
+      : ServiceCatalog.all;
 
   String? _currentSelectedAreaOption;
   Set<String> _currentSelectedAdditionalServices = {};
@@ -226,6 +222,8 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final services = _catalogServices;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -245,25 +243,49 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 20.0,
-            mainAxisSpacing: 20.0,
-            childAspectRatio: 0.9,
-          ),
-          itemCount: _services.length,
-          itemBuilder: (context, index) {
-            return _buildServiceItem(
-              context,
-              _services[index]['image']!,
-              _services[index]['title']!,
-            );
-          },
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Text(
+                'Services',
+                style: GoogleFonts.poppins(
+                  fontSize: AppTextStyles.heading4.fontSize,
+                  color: AppColors.neutralBlack,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 15.0,
+                  mainAxisSpacing: 15.0,
+                  childAspectRatio: 0.9,
+                ),
+                itemCount: services.length,
+                itemBuilder: (context, index) {
+                  final service = services[index];
+                  return _buildServiceItem(
+                    context,
+                    service.imageAsset,
+                    service.title,
+                    comingSoon: service.comingSoon,
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
@@ -272,12 +294,12 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
   Widget _buildServiceItem(
     BuildContext context,
     String imagePath,
-    String title,
-  ) {
-    final bool isComingSoon = _comingSoonServices.contains(title);
+    String title, {
+    bool comingSoon = false,
+  }) {
     return GestureDetector(
       onTap: () {
-        if (isComingSoon) {
+        if (comingSoon) {
           _showComingSoonMessage(context, title);
           return;
         }
@@ -288,69 +310,95 @@ class _SelectServiceScreenState extends State<SelectServiceScreen> {
         _showServiceDetailsSheet(context, title);
       },
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15.0),
             decoration: BoxDecoration(
-              color: AppColors.neutralWhite,
-              borderRadius: BorderRadius.circular(15.0),
+              color: AppColors.primaryLightPurple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(15),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.neutralMediumGray.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 5),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  imagePath,
-                  height: 100,
-                  width: 100,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.broken_image,
-                      size: 80,
-                      color: AppColors.neutralMediumGray,
-                    );
-                  },
+                Opacity(
+                  opacity: comingSoon ? 0.55 : 1,
+                  child: Image.asset(
+                    imagePath,
+                    height: 50,
+                    width: 50,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.broken_image,
+                        size: 50,
+                        color: AppColors.neutralMediumGray,
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   title,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
-                    fontSize: AppTextStyles.bodyText.fontSize,
-                    color: AppColors.neutralBlack,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                    color: comingSoon
+                        ? AppColors.neutralDarkGray
+                        : AppColors.neutralBlack,
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
-                if (isComingSoon) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Coming Soon',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: AppColors.primaryPurple,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
+          if (comingSoon)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.neutralMediumGray.withOpacity(0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      size: 10,
+                      color: AppColors.neutralWhite,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      'Soon',
+                      style: GoogleFonts.poppins(
+                        fontSize: 8,
+                        color: AppColors.neutralWhite,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

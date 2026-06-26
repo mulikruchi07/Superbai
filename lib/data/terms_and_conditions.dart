@@ -631,8 +631,7 @@ class TermsAndConditions {
       body:
           'For any questions regarding this Privacy Policy, please contact:\n\n'
           'SuperBai Solutions Private Limited\n'
-          'Email: superbaisolutions26@gmail.com\n'
-          'Website: www.superbai.in',
+          'Email: superbaisolutions26@gmail.com\n',
     ),
   ];
 

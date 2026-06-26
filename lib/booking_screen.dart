@@ -144,80 +144,50 @@ class _BookingScreenState extends State<BookingScreen>
 
     List<Map<String, dynamic>> active = [];
     List<Map<String, dynamic>> previous = [];
-    bool ongoingFound = false;
-    bool upNextFound = false;
 
     for (final booking in allBookings) {
-      String status = booking['Status'] as String? ?? 'Soon';
+      final existingStatus = booking['Status'] as String? ?? '';
       final firestoreStatus =
           (booking['firestoreStatus'] as String?)?.toLowerCase() ?? '';
 
       if (firestoreStatus == 'completed') {
-        booking['Status'] = 'Completed';
         previous.add(booking);
         continue;
       }
 
-      if (status != 'Cancelled' && status != 'Backup Requested') {
-        final startTime = _getBookingDateTime(booking);
-        final endTime = _getBookingDateTime(booking, getEndTime: true);
-        final now = DateTime.now();
-        final bookingType = booking['BookingType'] as String? ?? 'Daily';
-        final contractEndTs = booking['contractEndDate'] as Timestamp?;
-        final contractEnded = contractEndTs != null &&
-            now.isAfter(
-              DateTime(
-                contractEndTs.toDate().year,
-                contractEndTs.toDate().month,
-                contractEndTs.toDate().day,
-              ).add(const Duration(days: 1)),
-            );
-
-        // Daily / maid-linked jobs stay active until the contract end date,
-        // not when today's shift window has passed.
-        final isOngoingContract =
-            bookingType == 'Daily' &&
-            firestoreStatus != 'completed' &&
-            !contractEnded;
-
-        if (contractEnded) {
-          status = 'Completed';
-        } else if (isOngoingContract) {
-          if (now.isAfter(startTime) && now.isBefore(endTime)) {
-            status = 'Ongoing';
-            ongoingFound = true;
-          } else if (ongoingFound && !upNextFound) {
-            status = 'Up next';
-            upNextFound = true;
-          } else {
-            status = 'Soon';
-          }
-        } else if (now.isAfter(endTime)) {
-          status = 'Completed';
-        } else if (now.isAfter(startTime) && now.isBefore(endTime)) {
-          status = 'Ongoing';
-          ongoingFound = true;
-        } else if (ongoingFound && !upNextFound) {
-          status = 'Up next';
-          upNextFound = true;
-        } else {
-          status = 'Soon';
-        }
+      if (existingStatus == 'Cancelled' ||
+          existingStatus == 'Backup Requested') {
+        continue;
       }
-      booking['Status'] = status;
 
-      if (status == 'Completed') {
+      final endTime = _getBookingDateTime(booking, getEndTime: true);
+      final now = DateTime.now();
+      final bookingType = booking['BookingType'] as String? ?? 'Daily';
+      final contractEndTs = booking['contractEndDate'] as Timestamp?;
+      final contractEnded = contractEndTs != null &&
+          now.isAfter(
+            DateTime(
+              contractEndTs.toDate().year,
+              contractEndTs.toDate().month,
+              contractEndTs.toDate().day,
+            ).add(const Duration(days: 1)),
+          );
+
+      // Daily / maid-linked jobs stay active until the contract end date,
+      // not when today's shift window has passed.
+      final isOngoingContract =
+          bookingType == 'Daily' &&
+          firestoreStatus != 'completed' &&
+          !contractEnded;
+
+      final isCompleted =
+          contractEnded || (!isOngoingContract && now.isAfter(endTime));
+
+      if (isCompleted) {
         previous.add(booking);
-      } else if (status != 'Cancelled' && status != 'Backup Requested') {
+      } else {
         // Daily + Instant bookings both show under Active (Daily tab).
         active.add(booking);
-      }
-    }
-
-    if (!ongoingFound) {
-      final nextActiveIndex = active.indexWhere((b) => b['Status'] == 'Soon');
-      if (nextActiveIndex != -1) {
-        active[nextActiveIndex]['Status'] = 'Up next';
       }
     }
 
@@ -812,21 +782,6 @@ class _BookingScreenState extends State<BookingScreen>
     return trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
   }
 
-  String _friendlyStatusLabel(String status) {
-    switch (status.trim().toLowerCase()) {
-      case 'soon':
-        return 'Starting soon';
-      case 'backup requested':
-        return 'Backup requested';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'completed':
-        return 'Completed';
-      default:
-        return status;
-    }
-  }
-
   Widget _buildMaidAvatar(
     String name, {
     double radius = 28,
@@ -878,42 +833,6 @@ class _BookingScreenState extends State<BookingScreen>
     );
   }
 
-  Widget _buildBookingStatusBadge(String status) {
-    Color background;
-    Color textColor = AppColors.neutralWhite;
-
-    switch (status.trim().toLowerCase()) {
-      case 'backup requested':
-        background = AppColors.emotionOrangeRed;
-        break;
-      case 'cancelled':
-        background = AppColors.neutralDarkGray;
-        break;
-      case 'completed':
-        background = AppColors.emotionGreen;
-        break;
-      default:
-        background = AppColors.neutralWhite.withOpacity(0.22);
-        textColor = AppColors.neutralWhite;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        _friendlyStatusLabel(status),
-        style: GoogleFonts.poppins(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
-    );
-  }
-
   Widget _buildActiveBookingCard(Map<String, dynamic> booking) {
     bool isInstant = booking['BookingType'] == 'Instant';
     final bookingDateTime = _getBookingDateTime(booking);
@@ -922,7 +841,6 @@ class _BookingScreenState extends State<BookingScreen>
         ? booking['name'] as String
         : 'Your helper';
     final rating = booking['rating'] as double? ?? 4.0;
-    final status = (booking['Status'] as String?) ?? 'Starting soon';
     final service = booking['service'] as String? ?? '—';
 
     return Padding(
@@ -974,8 +892,6 @@ class _BookingScreenState extends State<BookingScreen>
                               0.45,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          _buildBookingStatusBadge(status),
                         ],
                       ),
                     ),
