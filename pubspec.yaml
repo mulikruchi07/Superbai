@@ -3,7 +3,7 @@ description: "SuperBai — household workforce management and maid services."
 
 publish_to: 'none' 
 
-version: 1.0.0+3
+version: 1.0.0+5
 
 environment:
   sdk: ^3.8.1

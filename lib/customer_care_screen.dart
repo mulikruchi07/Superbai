@@ -107,9 +107,9 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
   }
 
   // Function to show the "Still Need Help?" slider (modal bottom sheet)
-  void _showStillNeedHelpSlider() {
+  void _showStillNeedHelpSlider(BuildContext sheetContext) {
     showModalBottomSheet(
-      context: context,
+      context: sheetContext,
       backgroundColor: Colors.transparent, // Make background transparent
       builder: (BuildContext context) {
         return Container(
@@ -211,27 +211,12 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
   void _openFaqAnswer(CustomerCareFaqItem item) {
     Navigator.push(
       context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => FAQAnswerScreen(
+      MaterialPageRoute(
+        builder: (context) => FAQAnswerScreen(
           screenTitle: item.screenTitle,
           contentText: item.answer,
-          showStillNeedHelp: _showStillNeedHelpSlider,
+          onStillNeedHelp: () => _showStillNeedHelpSlider(context),
         ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.ease;
-
-          final tween = Tween(
-            begin: begin,
-            end: end,
-          ).chain(CurveTween(curve: curve));
-
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
       ),
     );
   }
@@ -487,20 +472,19 @@ class _CustomerCareScreenState extends State<CustomerCareScreen> {
 class FAQAnswerScreen extends StatelessWidget {
   final String screenTitle;
   final String contentText;
-  final VoidCallback?
-  showStillNeedHelp; // Callback for the "Still Need Help?" button
+  final VoidCallback? onStillNeedHelp;
 
   const FAQAnswerScreen({
     super.key,
     required this.screenTitle,
     required this.contentText,
-    this.showStillNeedHelp, // Initialize the callback
+    this.onStillNeedHelp,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.appBackground,
       appBar: AppBar(
         backgroundColor: AppColors.primaryPurple,
         elevation: 0,
@@ -520,51 +504,54 @@ class FAQAnswerScreen extends StatelessWidget {
         ),
         centerTitle: false,
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          MediaQuery.of(context).padding.bottom + 32,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              contentText,
-              style: GoogleFonts.poppins(
-                fontSize: 15,
-                color: AppColors.neutralBlack,
-                fontWeight: FontWeight.normal,
+      body: ColoredBox(
+        color: AppColors.appBackground,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            MediaQuery.of(context).padding.bottom + 32,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                contentText,
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  color: AppColors.neutralBlack,
+                  fontWeight: FontWeight.normal,
+                ),
               ),
-            ),
-            const SizedBox(height: 40),
-            if (showStillNeedHelp != null)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: showStillNeedHelp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryPurple,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 15,
+              const SizedBox(height: 40),
+              if (onStillNeedHelp != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onStillNeedHelp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryPurple,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 40,
+                        vertical: 15,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: Text(
-                    'Still Need Help?',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: AppColors.neutralWhite,
-                      fontWeight: FontWeight.bold,
+                    child: Text(
+                      'Still Need Help?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: AppColors.neutralWhite,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
